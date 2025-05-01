@@ -180,6 +180,9 @@
             white-space: pre-wrap;
             text-align: center;
              transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+             /* user-select state is controlled by JS */
+             user-select: none;
+             -webkit-user-select: none;
         }
 
 
@@ -191,6 +194,9 @@
              justify-content: center;
              padding: 0;
              box-sizing: border-box;
+             /* Inherit user-select from .card or set here if needed */
+             user-select: inherit;
+             -webkit-user-select: inherit;
         }
 
         .hidden {
@@ -235,6 +241,20 @@
             background-color: #c0392b;
          }
 
+         /* Styles for new highlight action buttons */
+         #undoHighlightBtn {
+             background-color: #6c757d; /* Gray */
+         }
+         #undoHighlightBtn:hover {
+             background-color: #5a6268;
+         }
+         #resetHighlightBtn {
+             background-color: #dc3545; /* Red/Danger */
+         }
+         #resetHighlightBtn:hover {
+             background-color: #c82333;
+         }
+
 
          .progress-controls {
              border-top: 1px solid #eee; /* Light border */
@@ -265,6 +285,61 @@
              transition: background-color 0.3s ease, border-color 0.3s ease;
         }
         */
+
+
+        /* --- Highlighting Styles --- */
+        /* Style for **syntax** processed highlighting */
+        .syntax-highlight {
+             background-color: #ffff00; /* Bright yellow */
+             padding: 0 2px;
+             border-radius: 2px;
+             color: #000; /* Ensure text is black for readability */
+             /* Prevents user-select interfering with highlighting itself */
+             user-select: text;
+             -webkit-user-select: text;
+        }
+
+         /* Style for user-applied highlighting - NOW YELLOW */
+         .user-highlight {
+            background-color: #ffff00; /* Bright yellow */ /* Changed from light blue */
+            padding: 0 2px;
+            border-radius: 2px;
+            color: #000; /* Ensure text is black */
+             user-select: text;
+             -webkit-user-select: text;
+        }
+
+        /* Dark mode highlight adjustment */
+        body.dark-mode .syntax-highlight {
+            background-color: #ffd700; /* Darker yellow for dark mode */
+            color: #000; /* Keep text black for contrast */
+        }
+
+         body.dark-mode .user-highlight {
+             background-color: #ffd700; /* Darker yellow in dark mode */ /* Changed from royal blue */
+             color: #000; /* Ensure text is black for readability on yellow */ /* Changed from lighter text */
+         }
+        
+        /* Highlighter button styles */
+        #highlighterBtn {
+            background-color: #ffff00; /* Yellow background */
+            color: #000; /* Black text */
+        }
+        
+        #highlighterBtn.active {
+            background-color: #ffd700; /* Darker yellow when active */
+            box-shadow: 0 0 5px rgba(255, 215, 0, 0.7); /* Glow effect when active */
+        }
+        
+        body.dark-mode #highlighterBtn {
+            background-color: #ffd700; /* Darker yellow for dark mode */
+            color: #000;
+        }
+        
+        body.dark-mode #highlighterBtn.active {
+            background-color: #ffcc00; /* Even darker yellow when active in dark mode */
+            box-shadow: 0 0 5px rgba(255, 204, 0, 0.7); /* Glow effect when active */
+        }
 
 
         /* --- Dark Mode Styles (Override Defaults) --- */
@@ -325,6 +400,20 @@
          }
          body.dark-mode #toggleFavoriteBtn.is-favorite:hover {
             background-color: #c0392b;
+         }
+
+         /* Dark mode styles for new highlight action buttons */
+         body.dark-mode #undoHighlightBtn {
+             background-color: #5a6268; /* Darker Gray */
+         }
+         body.dark-mode #undoHighlightBtn:hover {
+             background-color: #495056;
+         }
+         body.dark-mode #resetHighlightBtn {
+             background-color: #c82333; /* Darker Red */
+         }
+         body.dark-mode #resetHighlightBtn:hover {
+             background-color: #a71d2a;
          }
 
 
@@ -417,6 +506,12 @@
                  margin-bottom: 5px;
                  margin-left: 0 !important; /* Ensure left margin is also removed */
              }
+             /* Adjust new highlight buttons for stacking */
+             #undoHighlightBtn, #resetHighlightBtn {
+                 margin-right: 0 !important;
+                 margin-bottom: 5px;
+             }
+
 
         }
 
@@ -505,6 +600,11 @@
                      <button id="nextCardBtn">Next Card</button>
                      <!-- New button to toggle favorite status -->
                      <button id="toggleFavoriteBtn">Mark as Favorite</button>
+                     <!-- New highlighter button -->
+                     <button id="highlighterBtn">Highlighter</button>
+                     <!-- New buttons for undo/reset highlight -->
+                     <button id="undoHighlightBtn" disabled>Undo Highlight</button>
+                     <button id="resetHighlightBtn" disabled>Reset Highlight</button>
                 </div>
 
                  <!-- Removed SRS Rating Controls -->
@@ -554,6 +654,9 @@
         const markKnownBtn = document.getElementById('markKnownBtn');
         const markNeedsReviewBtn = document.getElementById('markNeedsReviewBtn');
         const toggleFavoriteBtn = document.getElementById('toggleFavoriteBtn'); // New button
+        const highlighterBtn = document.getElementById('highlighterBtn'); // Highlighter button
+        const undoHighlightBtn = document.getElementById('undoHighlightBtn'); // Undo button
+        const resetHighlightBtn = document.getElementById('resetHighlightBtn'); // Reset button
         const progressDisplay = document.getElementById('progressDisplay');
         const importDeckInput = document.getElementById('importDeckInput');
         const exportCurrentDeckBtn = document.getElementById('exportCurrentDeckBtn');
@@ -561,13 +664,16 @@
         const learningArea = document.getElementById('learningArea');
         const deleteFolderBtn = document.getElementById('deleteFolderBtn');
 
-        let currentDeck = null; // { name: '...', folder: '...', cards: [{front:'...', back:'...', status:'...', isFavorite: boolean, sourceDeckName?: string, sourceCardFront?: string}], shuffledIndices: [...] }
+        let currentDeck = null; // { name: '...', folder: '...', cards: [{front:'...', back:'...', status:'...', isFavorite: boolean, sourceDeckName?: string, sourceCardFront?: string, frontHighlighted?: string, backHighlighted?: string, frontHighlightHistory?: string[], backHighlightHistory?: string[]}], shuffledIndices: [...] }
         let currentCardIndex = 0; // Index within the shuffled/original order
         let isAnswerShowing = false;
+        let isHighlighterActive = false; // Track if highlighter mode is active
 
         const DECK_STORAGE_KEY = 'flashcardsDecksCollection';
         const UNSORTED_FOLDER_KEY = "__UNSORTED__";
         const ALL_FAVORITES_KEY = "__ALL_FAVORITES__"; // Special key for the Favorites view
+        const MAX_HIGHLIGHT_HISTORY = 10; // Limit history depth
+
 
          // --- Deck Management (Collection in localStorage) ---
 
@@ -575,7 +681,7 @@
          function getAllDecksFromStorage() {
              try {
                 const decks = JSON.parse(localStorage.getItem(DECK_STORAGE_KEY) || '{}');
-                // Ensure basic properties exist for compatibility with older saves
+                // Ensure basic properties exist for compatibility with older saves and add new ones
                  for (const deckName in decks) {
                      const deck = decks[deckName];
                      if (!Array.isArray(deck.cards)) {
@@ -584,8 +690,18 @@
                           continue;
                      }
                       deck.cards.forEach(card => {
-                          if (!card.status) card.status = 'new';
+                          if (!card.status || (card.status !== 'new' && card.status !== 'known' && card.status !== 'needsReview')) {
+                             card.status = 'new';
+                         }
                           if (typeof card.isFavorite !== 'boolean') card.isFavorite = false; // Add default favorite status
+                          if (typeof card.frontHighlighted !== 'string') card.frontHighlighted = undefined; // Ensure undefined or string
+                          if (typeof card.backHighlighted !== 'string') card.backHighlighted = undefined; // Ensure undefined or string
+
+                           // Initialize history arrays if missing or not arrays. History is not persisted from old saves.
+                          card.frontHighlightHistory = []; // Always start with empty history on load from storage
+                          card.backHighlightHistory = []; // Always start with empty history on load from storage
+
+
                           // Remove old SRS properties if they exist
                           delete card.interval;
                           delete card.repetitions;
@@ -614,7 +730,18 @@
         // Function to save a single deck (updates the collection in localStorage)
         function saveDeck(deck) {
             const decks = getAllDecksFromStorage(); // Get the latest state first
-            decks[deck.name] = deck; // Store/update by name
+            // Create a clean copy for saving, removing properties not meant for long-term storage
+             const deckToSave = JSON.parse(JSON.stringify(deck)); // Deep copy
+             // Remove history arrays - they are temporary for the session
+             deckToSave.cards.forEach(card => {
+                 delete card.frontHighlightHistory;
+                 delete card.backHighlightHistory;
+             });
+             // Remove other temporary properties if they somehow got added
+              delete deckToSave.shuffledIndices;
+              delete deckToSave.displayName;
+
+            decks[deckToSave.name] = deckToSave; // Store/update by name
             saveAllDecksToStorage(decks); // Save the entire updated collection
             // Note: Does NOT repopulate selects or reload currentDeck here.
             // This is handled by explicit calls or events after save/load actions.
@@ -638,11 +765,14 @@
                          deck.cards.forEach(card => {
                              if (card.isFavorite) {
                                  // For favorites view, add metadata to reference the original card
-                                 cardsToLoad.push({
-                                     ...card, // Copy existing properties
-                                     sourceDeckName: deck.name, // Add source deck name
-                                     sourceCardFront: card.front // Add source card front for lookup
-                                 });
+                                 // Clone the card to avoid modifying the original in memory during the favorites session
+                                 const cardCopy = JSON.parse(JSON.stringify(card));
+                                 cardCopy.sourceDeckName = deck.name; // Add source deck name
+                                 cardCopy.sourceCardFront = card.front; // Add source card front for lookup
+                                  // History arrays are temporary for the session in Favorites view, start fresh
+                                  cardCopy.frontHighlightHistory = [];
+                                  cardCopy.backHighlightHistory = [];
+                                 cardsToLoad.push(cardCopy);
                              }
                          });
                      }
@@ -676,6 +806,12 @@
                  populateDeckSelect(); // Refresh options
                  return;
             }
+
+            // Ensure cards in the loaded deck have history arrays initialized (if not already from getAllDecksFromStorage)
+             deckToLoad.cards.forEach(card => {
+                 if (!Array.isArray(card.frontHighlightHistory)) card.frontHighlightHistory = [];
+                 if (!Array.isArray(card.backHighlightHistory)) card.backHighlightHistory = [];
+             });
 
 
             currentDeck = deckToLoad; // Set the current deck object
@@ -714,11 +850,23 @@
             markKnownBtn.disabled = false;
             markNeedsReviewBtn.disabled = false;
             toggleFavoriteBtn.disabled = false; // Enable favorite button
+            highlighterBtn.disabled = false; // Enable highlighter button
+             // Undo/Reset buttons state will be set by displayCurrentCard
+
 
             // Enable export button only if NOT in Favorites view
             exportCurrentDeckBtn.disabled = isFavoritesView;
              // Delete deck button disabled in Favorites view
              deleteDeckBtn.disabled = isFavoritesView;
+
+             // Ensure highlighter mode is OFF by default when loading a deck
+             isHighlighterActive = false;
+             highlighterBtn.classList.remove('active');
+             highlighterBtn.textContent = 'Highlighter';
+              // Ensure text selection is disabled on the card by default
+              flashcard.style.userSelect = 'none';
+              flashcard.style.webkitUserSelect = 'none';
+              flashcard.style.cursor = 'default';
 
         }
 
@@ -841,8 +989,20 @@
               markKnownBtn.disabled = true; // Basic progress buttons disabled
               markNeedsReviewBtn.disabled = true; // Basic progress buttons disabled
               toggleFavoriteBtn.disabled = true; // Favorite button disabled
-              toggleFavoriteBtn.textContent = 'Mark as Favorite'; // Reset text
-              toggleFavoriteBtn.classList.remove('is-favorite'); // Reset class
+              updateFavoriteButtonState(false); // Reset favorite button appearance
+
+              highlighterBtn.disabled = true; // Disable highlighter button
+              highlighterBtn.classList.remove('active'); // Reset highlighter state
+              highlighterBtn.textContent = 'Highlighter'; // Reset text
+              isHighlighterActive = false; // Reset highlighter mode
+
+              undoHighlightBtn.disabled = true; // Disable undo button
+              resetHighlightBtn.disabled = true; // Disable reset button
+
+               // Ensure text selection is disabled on the card
+              flashcard.style.userSelect = 'none';
+              flashcard.style.webkitUserSelect = 'none';
+              flashcard.style.cursor = 'default';
 
 
               exportCurrentDeckBtn.disabled = true;
@@ -884,7 +1044,7 @@
             const existingDecks = getAllDecksFromStorage();
             let overwrite = false;
             if (existingDecks[deckName]) {
-                 if (!confirm(`Deck "${deckName}" already exists. Do you want to overwrite it? This will replace the cards and reset progress/favorites for this deck.`)) {
+                 if (!confirm(`Deck "${deckName}" already exists. Do you want to overwrite it? This will replace the cards and reset progress/favorites/highlights for this deck.`)) {
                      return;
                  }
                  overwrite = true;
@@ -900,7 +1060,10 @@
                          front: parts[1].trim(),
                          back: parts[2].trim(),
                          status: 'new', // Start as new
-                         isFavorite: false // Default to not favorited
+                         isFavorite: false, // Default to not favorited
+                         frontHighlighted: undefined, // Initialize without user highlighting
+                         backHighlighted: undefined, // Initialize without user highlighting
+                         // History is not part of the saved deck structure from creation
                           // Removed SRS properties: interval, repetitions, easeFactor, dueDate
                       });
                 } else if (line.trim() !== '') {
@@ -960,7 +1123,19 @@
             }
         });
 
-         // Function to display the current card from the shuffled/original order
+         // Function to process text with **syntax** highlighting
+        function processSyntaxHighlighting(text) {
+            // Replace **text** with <span class="syntax-highlight">text</span>
+            // Use a non-greedy match (.*?) and ensure we don't create empty highlights
+            return text.replace(/\*\*(.*?)\*\*/g, (match, p1) => {
+                 if (p1.trim() === '') {
+                     return match; // Don't highlight empty strings between **
+                 }
+                 return `<span class="syntax-highlight">${p1}</span>`;
+            });
+        }
+
+        // Function to display the current card from the shuffled/original order
         function displayCurrentCard() {
             if (!currentDeck || !currentDeck.cards || currentDeck.cards.length === 0 || !currentDeck.shuffledIndices || currentDeck.shuffledIndices.length === 0) {
                  cardFront.textContent = "No cards available in this deck/view.";
@@ -968,7 +1143,9 @@
                  cardBack.classList.add('hidden'); // Hide back
                  cardFront.classList.remove('hidden'); // Ensure front is visible (or just show "No cards")
                  isAnswerShowing = false; // Reset state
-                  updateProgressDisplay(); // Clear progress display or show 0/0
+                 updateFavoriteButtonState(false); // Reset favorite button appearance
+                 updateHighlightButtons(false); // Disable highlight buttons initially
+                 updateProgressDisplay(); // Clear progress display or show 0/0
                  // Disable card controls if no cards
                  showAnswerBtn.disabled = true;
                  nextCardBtn.disabled = true;
@@ -976,8 +1153,15 @@
                  markKnownBtn.disabled = true;
                  markNeedsReviewBtn.disabled = true;
                  toggleFavoriteBtn.disabled = true; // Disable favorite button
-                 toggleFavoriteBtn.textContent = 'Mark as Favorite'; // Reset text
-                 toggleFavoriteBtn.classList.remove('is-favorite'); // Reset class
+                 highlighterBtn.disabled = true; // Disable highlighter button
+                 highlighterBtn.classList.remove('active'); // Reset highlighter state
+                 highlighterBtn.textContent = 'Highlighter'; // Reset text
+                 isHighlighterActive = false; // Reset highlighter mode
+                  // Ensure text selection is disabled on the card
+                  flashcard.style.userSelect = 'none';
+                  flashcard.style.webkitUserSelect = 'none';
+                  flashcard.style.cursor = 'default';
+
                  return;
             }
 
@@ -994,6 +1178,8 @@
                  cardBack.classList.add('hidden');
                  cardFront.classList.remove('hidden');
                  isAnswerShowing = false;
+                 updateFavoriteButtonState(false);
+                 updateHighlightButtons(false); // Disable highlight buttons
                  updateProgressDisplay();
                  // Keep controls disabled or handle gracefully? Let's disable.
                  showAnswerBtn.disabled = true;
@@ -1002,15 +1188,24 @@
                  markKnownBtn.disabled = true;
                  markNeedsReviewBtn.disabled = true;
                  toggleFavoriteBtn.disabled = true;
-                 toggleFavoriteBtn.textContent = 'Mark as Favorite';
-                 toggleFavoriteBtn.classList.remove('is-favorite');
+                 highlighterBtn.disabled = true; // Disable highlighter button
+                 highlighterBtn.classList.remove('active'); // Reset highlighter state
+                 highlighterBtn.textContent = 'Highlighter'; // Reset text
+                 isHighlighterActive = false; // Reset highlighter mode
+                  // Ensure text selection is disabled
+                  flashcard.style.userSelect = 'none';
+                  flashcard.style.webkitUserSelect = 'none';
+                  flashcard.style.cursor = 'default';
                  return;
              }
 
             const card = currentDeck.cards[actualCardIndex];
 
-            cardFront.textContent = card.front;
-            cardBack.textContent = card.back;
+            // Display content, prioritizing saved highlighted versions if they exist
+            // If no user-applied highlight, process original text for ** syntax highlighting
+            cardFront.innerHTML = card.frontHighlighted || processSyntaxHighlighting(card.front);
+            cardBack.innerHTML = card.backHighlighted || processSyntaxHighlighting(card.back);
+
 
             // Always show front and hide back when a new card is displayed
             cardFront.classList.remove('hidden'); // Make front visible
@@ -1020,6 +1215,10 @@
              // Update favorite button state
              updateFavoriteButtonState(card.isFavorite);
 
+             // Update highlight button states based on current card face (front is visible)
+             updateHighlightButtons(false);
+
+
              // Show/Enable relevant controls
              showAnswerBtn.disabled = false;
              nextCardBtn.disabled = false;
@@ -1027,10 +1226,64 @@
              markKnownBtn.disabled = false;
              markNeedsReviewBtn.disabled = false;
              toggleFavoriteBtn.disabled = false; // Enable favorite button
+             highlighterBtn.disabled = false; // Enable highlighter button
 
 
             updateProgressDisplay(); // Update display with current card number and overall progress
+
+             // Ensure text selection is disabled on the card until highlighter is active
+             flashcard.style.userSelect = 'none';
+             flashcard.style.webkitUserSelect = 'none';
+             flashcard.style.cursor = 'default';
+
+             // Ensure highlighter button reflects current state
+             if (isHighlighterActive) {
+                 highlighterBtn.classList.add('active');
+                 highlighterBtn.textContent = 'Highlighter (ON)';
+                 flashcard.style.userSelect = 'text';
+                 flashcard.style.webkitUserSelect = 'text';
+                 flashcard.style.cursor = 'text';
+                 // Disable undo/reset while actively highlighting
+                 undoHighlightBtn.disabled = true;
+                 resetHighlightBtn.disabled = true;
+             } else {
+                  highlighterBtn.classList.remove('active');
+                  highlighterBtn.textContent = 'Highlighter';
+                  // Re-enable undo/reset buttons based on state when highlighter is off
+                 updateHighlightButtons(isAnswerShowing);
+             }
+
         }
+
+         // Helper to update the state of the undo and reset highlight buttons
+         function updateHighlightButtons(isBackFace) {
+             if (!currentDeck || !currentDeck.cards || currentDeck.cards.length === 0 || currentDeck.shuffledIndices.length === 0) {
+                  undoHighlightBtn.disabled = true;
+                  resetHighlightBtn.disabled = true;
+                  return;
+             }
+              const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
+              if (actualCardIndex < 0 || actualCardIndex >= currentDeck.cards.length) {
+                 undoHighlightBtn.disabled = true;
+                 resetHighlightBtn.disabled = true;
+                 return;
+              }
+             const card = currentDeck.cards[actualCardIndex];
+
+              // Check if there is saved highlighted content or history for the *current* face
+              const hasSavedHighlight = isBackFace ? card.backHighlighted : card.frontHighlighted;
+              const hasHistory = isBackFace ? (card.backHighlightHistory && card.backHighlightHistory.length > 0) : (card.frontHighlightHistory && card.frontHighlightHistory.length > 0);
+
+             undoHighlightBtn.disabled = !hasHistory; // Enable undo only if there's history
+             resetHighlightBtn.disabled = !hasSavedHighlight; // Enable reset only if there's saved highlighted content
+
+              // Ensure undo/reset are disabled if highlighter mode is ON
+              if (isHighlighterActive) {
+                  undoHighlightBtn.disabled = true;
+                  resetHighlightBtn.disabled = true;
+              }
+         }
+
 
         showAnswerBtn.addEventListener('click', () => {
             if (currentDeck && currentDeck.cards.length > 0) {
@@ -1045,6 +1298,18 @@
                     cardFront.classList.remove('hidden'); // Show front
                     isAnswerShowing = false;
                 }
+                 // Re-apply user-select style based on highlighter state after flip
+                 if (isHighlighterActive) {
+                     flashcard.style.userSelect = 'text';
+                     flashcard.style.webkitUserSelect = 'text';
+                     flashcard.style.cursor = 'text';
+                 } else {
+                      flashcard.style.userSelect = 'none';
+                      flashcard.style.webkitUserSelect = 'none';
+                      flashcard.style.cursor = 'default';
+                 }
+                 // Update highlight button states based on the now visible face
+                 updateHighlightButtons(isAnswerShowing);
             }
         });
 
@@ -1078,7 +1343,9 @@
                 displayCurrentCard(); // Display the first card in the new order
                  // Only save shuffledIndices if it's a regular deck, not the temporary favorites view
                  if (currentDeck.name !== ALL_FAVORITES_KEY) {
-                    saveDeck(currentDeck); // Save the whole deck object, including the new shuffledIndices
+                    // Note: We don't strictly need to save shuffledIndices, as they are regenerated on load.
+                    // Removing this save call here simplifies things slightly.
+                    // saveDeck(currentDeck);
                  }
             }
              // If no deck is loaded, the change just affects the setting for the *next* loaded deck
@@ -1126,92 +1393,80 @@
              let originalDeckName;
              let cardFrontToFind;
 
-             if (currentDeck.name === ALL_FAVORITES_KEY) {
+             if (currentDeck.name === ALL_FAVORITES_KEY && card.sourceDeckName && card.sourceCardFront) {
                  // In Favorites view, use the stored source info
                  originalDeckName = card.sourceDeckName;
                  cardFrontToFind = card.sourceCardFront; // Use original front for lookup
-                 // If card content was changed in the source deck after favoriting,
-                 // this lookup by front might fail. A unique ID would be more robust.
-             } else {
+             } else if (currentDeck.name !== ALL_FAVORITES_KEY && currentDeck.name && card.front) {
                  // In a regular deck view, the source is the current deck
                  originalDeckName = currentDeck.name;
                  cardFrontToFind = card.front; // Use current front for lookup
+             } else {
+                 console.error("Missing info to find original card for favorite update.");
+                 alert("Error updating favorite status.");
+                 return;
              }
 
-             if (originalDeckName) {
-                 const decks = getAllDecksFromStorage();
-                 const originalDeck = decks[originalDeckName];
 
-                 if (originalDeck && Array.isArray(originalDeck.cards)) {
-                     // Find the card in the original deck by its front content (assuming front is unique per deck)
-                     const originalCard = originalDeck.cards.find(c => c.front === cardFrontToFind);
+             const decks = getAllDecksFromStorage();
+             const originalDeck = decks[originalDeckName];
 
-                     if (originalCard) {
-                         // Update the favorite status on the original card object
-                         originalCard.isFavorite = card.isFavorite;
+             if (originalDeck && Array.isArray(originalDeck.cards)) {
+                 // Find the card in the original deck by its front content
+                 const originalCard = originalDeck.cards.find(c => c.front === cardFrontToFind);
 
-                         // Save the original deck back to storage
-                         saveDeck(originalDeck);
-                         console.log(`Card "${card.front}" in deck "${originalDeckName}" favorite status toggled.`);
+                 if (originalCard) {
+                     // Update the favorite status on the original card object
+                     originalCard.isFavorite = card.isFavorite;
 
-                         // If we are in the All Favorites view and just unmarked a card,
-                         // should we remove it from the current session? Yes, makes sense.
-                         if (currentDeck.name === ALL_FAVORITES_KEY && !card.isFavorite) {
-                              // Remove the card from the *current temporary* shuffledIndices and cards list
-                              // Find the index of the current *shuffled* card in the shuffledIndices array
-                              const currentShuffledIndexInIndices = currentDeck.shuffledIndices.indexOf(actualCardIndex);
+                     // Save the original deck back to storage
+                     saveDeck(originalDeck);
+                     console.log(`Card "${card.front}" in deck "${originalDeckName}" favorite status toggled.`);
 
-                              if (currentShuffledIndexInIndices > -1) {
-                                  // Remove the entry from shuffledIndices
-                                  currentDeck.shuffledIndices.splice(currentShuffledIndexInIndices, 1);
+                     // If we are in the All Favorites view and just unmarked a card,
+                     // should we remove it from the current session? Yes, makes sense.
+                     if (currentDeck.name === ALL_FAVORITES_KEY && !card.isFavorite) {
+                          // Remove the card from the *current temporary* shuffledIndices list
+                          // Find the index of the current *shuffled* card in the shuffledIndices array
+                          const currentShuffledIndexInIndices = currentDeck.shuffledIndices.indexOf(actualCardIndex);
 
-                                  // Remove the card from the *temporary* cards array (optional but keeps it in sync)
-                                  currentDeck.cards.splice(actualCardIndex, 1);
+                          if (currentShuffledIndexInIndices > -1) {
+                              // Remove the entry from shuffledIndices
+                              currentDeck.shuffledIndices.splice(currentShuffledIndexInIndices, 1);
 
-                                  // Adjust subsequent indices in shuffledIndices if necessary (complex!)
-                                   // Easier: Re-generate shuffledIndices for the remaining temporary cards
-                                  currentDeck.shuffledIndices = Array.from({length: currentDeck.cards.length}, (_, i) => i);
-                                   // Re-shuffle if randomization is on
-                                   if (randomizeCheckbox.checked) {
-                                       currentDeck.shuffledIndices = shuffleArray(currentDeck.shuffledIndices);
-                                   }
-
-
-                                  // Move to the next card in the updated list
-                                  if (currentDeck.shuffledIndices.length > 0) {
-                                       // Adjust currentCardIndex if the removed card was before it
-                                       // Or simply move to the next index, wrap around if needed
-                                       currentCardIndex = currentCardIndex % currentDeck.shuffledIndices.length; // Stay within new bounds
-                                       displayCurrentCard();
-                                  } else {
-                                       // No cards left in the favorites session
-                                       alert("No more favorite cards left in this view.");
-                                       resetLearningArea();
-                                       populateDeckSelect(); // Refresh options
-                                  }
-                                   updateProgressDisplay(); // Update progress for the favorites view
+                              // Move to the next card in the updated list (using the modified shuffledIndices)
+                              if (currentDeck.shuffledIndices.length > 0) {
+                                   // Adjust currentCardIndex to stay within new bounds
+                                   currentCardIndex = currentCardIndex % currentDeck.shuffledIndices.length;
+                                    // Re-display the card at the new currentCardIndex
+                                   displayCurrentCard();
                               } else {
-                                   console.error("Error finding current card in shuffled indices array.");
-                              }
-
-
-                         } else {
-                              // If not in favorites view, or if favoriting, just update progress display
-                              updateProgressDisplay();
-                         }
+                                   // No cards left in the favorites session
+                                   alert("No more favorite cards left in this view.");
+                                   resetLearningArea();
+                                   populateDeckSelect(); // Refresh options
+                               }
+                               updateProgressDisplay(); // Update progress for the favorites view
+                          } else {
+                               console.error("Error finding current card in shuffled indices array.");
+                               // If we can't find it, maybe just try to display the next card and log the error
+                               nextCardBtn.click();
+                          }
 
 
                      } else {
-                         console.error(`Could not find original card "${cardFrontToFind}" in deck "${originalDeckName}" to toggle favorite status.`);
-                         alert("Error updating favorite status. Could not find the original card.");
+                          // If not in favorites view, or if favoriting, just update progress display
+                          updateProgressDisplay();
                      }
+
+
                  } else {
-                     console.error(`Could not find original deck "${originalDeckName}" in storage to toggle favorite status.`);
-                     alert("Error updating favorite status. Could not find the source deck.");
+                     console.error(`Could not find original card "${cardFrontToFind}" in deck "${originalDeckName}" to toggle favorite status.`);
+                     alert("Error updating favorite status. Could not find the original card.");
                  }
              } else {
-                 console.error("No source deck information available for this card.");
-                 alert("Error updating favorite status.");
+                 console.error(`Could not find original deck "${originalDeckName}" in storage to toggle favorite status.`);
+                 alert("Error updating favorite status. Could not find the source deck.");
              }
         });
 
@@ -1219,34 +1474,62 @@
         // --- Progress Tracking (Basic Status) ---
 
         // Helper function to find and update a card in its original deck in localStorage
+        // updateFunc is a function that takes the original card object and modifies it
         function updateCardInOriginalDeck(currentCard, updateFunc) {
              if (!currentCard) return false;
 
              let originalDeckName;
              let cardFrontToFind; // Using front for lookup
 
-             if (currentDeck.name === ALL_FAVORITES_KEY) {
-                 // In Favorites view, use the stored source info
+             // If the currentDeck is the ALL_FAVORITES_KEY deck, the original deck/card info
+             // is stored directly on the card object itself (`sourceDeckName`, `sourceCardFront`)
+             if (currentDeck.name === ALL_FAVORITES_KEY && currentCard.sourceDeckName && currentCard.sourceCardFront) {
                  originalDeckName = currentCard.sourceDeckName;
                  cardFrontToFind = currentCard.sourceCardFront;
-             } else {
-                 // In a regular deck view, the source is the current deck
+             } else if (currentDeck.name !== ALL_FAVORITES_KEY && currentDeck.name && currentCard.front) {
+                 // If it's a regular deck, the original deck is the current deck
                  originalDeckName = currentDeck.name;
                  cardFrontToFind = currentCard.front;
+             } else {
+                 console.error("Could not determine original deck or card info for update.");
+                 return false;
              }
 
-            if (originalDeckName) {
+
+            if (originalDeckName && cardFrontToFind) {
                 const decks = getAllDecksFromStorage();
                 const originalDeck = decks[originalDeckName];
 
                 if (originalDeck && Array.isArray(originalDeck.cards)) {
-                    const originalCard = originalDeck.cards.find(c => c.front === cardFrontToFind);
+                     // Find the card in the original deck by its front content
+                    const originalCardIndex = originalDeck.cards.findIndex(c => c.front === cardFrontToFind);
 
-                    if (originalCard) {
-                        // Apply the update function (e.g., change status)
+                    if (originalCardIndex > -1) {
+                        const originalCard = originalDeck.cards[originalCardIndex];
+                        // Apply the update function (e.g., change status, highlights)
                         updateFunc(originalCard);
-                        // Save the modified deck
-                        saveDeck(originalDeck);
+
+                        // If the currentDeck is a regular deck, ALSO update the in-memory card object
+                        // This keeps the UI and in-memory state in sync immediately
+                         if (currentDeck.name !== ALL_FAVORITES_KEY) {
+                             // Find the card in the currentDeck's *original* cards array using its index from shuffledIndices
+                             // Note: The updateFunc modifies the 'originalCard'. We need to copy those changes
+                             // back to the *in-memory* card object for the current session's UI to update immediately.
+                             // The 'card' object passed to the handler (markKnownBtn, toggleFavoriteBtn etc.) IS
+                             // the object from currentDeck.cards for regular decks, so updateFunc modifies it directly.
+                             // No extra step needed here.
+                         } else {
+                             // If in Favorites view, the 'card' object passed to updateFunc was a temporary copy.
+                             // The updateFunc modified the 'originalCard'. We need to manually update the temporary
+                             // card object *in memory* if its properties like highlighted status were changed.
+                             // The updateFunc should handle this copy if needed for local state.
+                             // For highlighted state, this is handled in saveHighlightedContent, undo, reset.
+                         }
+
+
+                        // Save the modified original deck back to storage
+                        saveDeck(originalDeck); // This calls the saveDeck that cleans history
+
                         return true; // Success
                     } else {
                          console.error(`Could not find original card "${cardFrontToFind}" in deck "${originalDeckName}" for update.`);
@@ -1255,55 +1538,52 @@
                      console.error(`Could not find original deck "${originalDeckName}" in storage for update.`);
                 }
             } else {
-                console.error("No source deck information available for this card for update.");
+                console.error("Missing information to find original card for update.");
             }
             return false; // Failure
         }
 
 
         markKnownBtn.addEventListener('click', () => {
-             if (currentDeck && currentDeck.cards.length > 0 && currentDeck.shuffledIndices.length > 0) {
-                 const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
-                  if (actualCardIndex >= 0 && actualCardIndex < currentDeck.cards.length) {
-                     const card = currentDeck.cards[actualCardIndex]; // Get the current card object
+             if (!currentDeck || currentDeck.cards.length === 0 || currentDeck.shuffledIndices.length === 0) return;
 
-                     // Update status in the original deck in storage
-                     const updated = updateCardInOriginalDeck(card, (originalCard) => {
-                          originalCard.status = 'known';
-                          card.status = 'known'; // Update status in the current view as well
-                     });
+              const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
+              if (actualCardIndex < 0 || actualCardIndex >= currentDeck.cards.length) return;
+              const card = currentDeck.cards[actualCardIndex]; // Get the current card object in the currentDeck array
 
-                     if (updated) {
-                        updateProgressDisplay();
-                        // Optional: Move to the next card automatically after marking
-                        // nextCardBtn.click();
-                     } else {
-                         alert("Error marking card as known.");
-                     }
-                  }
+
+             // Update status in the original deck in storage and in the current view object
+             const updated = updateCardInOriginalDeck(card, (cardToUpdate) => {
+                  cardToUpdate.status = 'known';
+             });
+
+             if (updated) {
+                updateProgressDisplay();
+                // Optional: Move to the next card automatically after marking
+                // nextCardBtn.click();
+             } else {
+                 alert("Error marking card as known.");
              }
         });
 
         markNeedsReviewBtn.addEventListener('click', () => {
-             if (currentDeck && currentDeck.cards.length > 0 && currentDeck.shuffledIndices.length > 0) {
-                 const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
-                  if (actualCardIndex >= 0 && actualCardIndex < currentDeck.cards.length) {
-                      const card = currentDeck.cards[actualCardIndex]; // Get the current card object
+             if (!currentDeck || currentDeck.cards.length === 0 || currentDeck.shuffledIndices.length === 0) return;
 
-                      // Update status in the original deck in storage
-                      const updated = updateCardInOriginalDeck(card, (originalCard) => {
-                           originalCard.status = 'needsReview';
-                            card.status = 'needsReview'; // Update status in the current view as well
-                      });
+              const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
+              if (actualCardIndex < 0 || actualCardIndex >= currentDeck.cards.length) return;
+              const card = currentDeck.cards[actualCardIndex]; // Get the current card object in the currentDeck array
 
-                     if (updated) {
-                        updateProgressDisplay();
-                        // Optional: Move to the next card automatically after marking
-                        // nextCardBtn.click();
-                     } else {
-                         alert("Error marking card as 'Needs Review'.");
-                     }
-                  }
+              // Update status in the original deck in storage and in the current view object
+              const updated = updateCardInOriginalDeck(card, (cardToUpdate) => {
+                   cardToUpdate.status = 'needsReview';
+              });
+
+             if (updated) {
+                updateProgressDisplay();
+                // Optional: Move to the next card automatically after marking
+                // nextCardBtn.click();
+             } else {
+                 alert("Error marking card as 'Needs Review'.");
              }
         });
 
@@ -1363,6 +1643,16 @@
                               if (typeof card.isFavorite !== 'boolean') { // Add default favorite status if missing
                                  card.isFavorite = false;
                              }
+                              // Initialize highlight properties if missing, or ensure they are strings/undefined
+                              if (typeof card.frontHighlighted !== 'string') card.frontHighlighted = undefined;
+                              if (typeof card.backHighlighted !== 'string') card.backHighlighted = undefined;
+
+                              // --- IMPORTANT for Import: Reset history, don't import it ---
+                               // History is session/local state, not part of the permanent deck data.
+                              card.frontHighlightHistory = [];
+                              card.backHighlightHistory = [];
+
+
                              // Remove old SRS properties if they exist in the imported file
                              delete card.interval;
                              delete card.repetitions;
@@ -1378,15 +1668,15 @@
                          }
 
 
-                         // We don't save shuffledIndices with the deck file itself
+                         // We don't save shuffledIndices or display name with the deck file itself
                          delete importedDeck.shuffledIndices;
-                         delete importedDeck.displayName; // Remove temporary display name if present
+                         delete importedDeck.displayName;
 
 
                          // Check if a deck with this name already exists and confirm overwrite
                          const existingDecks = getAllDecksFromStorage();
                          if (existingDecks[importedDeck.name]) {
-                             if (!confirm(`A deck named "${importedDeck.name}" already exists in your browser. Do you want to overwrite it with the imported file? This will replace the existing deck and its progress/favorites.`)) {
+                             if (!confirm(`A deck named "${importedDeck.name}" already exists in your browser. Do you want to overwrite it with the imported file? This will replace the existing deck and its progress/favorites/highlights/history.`)) {
                                  // User cancelled import
                                  event.target.value = ''; // Reset file input
                                  return;
@@ -1409,6 +1699,8 @@
                          // Select the newly imported deck in the dropdown
                          // Use a timeout to ensure the populateDeckSelect has finished adding the option
                          setTimeout(() => {
+                              populateFolderSelect(); // Need to repopulate folders just in case
+                              populateDeckSelect();
                               deckSelect.value = importedDeck.name;
                              // Don't automatically load, let the user click Load
                              resetLearningArea(); // Ensure current view is cleared
@@ -1447,14 +1739,19 @@
 
              // Clean up the deck object for export - remove temporary internal state like shuffledIndices or display name
              const cleanedDeck = JSON.parse(JSON.stringify(deckToExport)); // Deep copy
-             delete cleanedDeck.shuffledIndices;
-             delete cleanedDeck.displayName; // Should not be on regular decks anyway, but safety
 
-             // Ensure cards don't have temporary source info (shouldn't happen on regular decks, but safety)
+             // --- IMPORTANT for Export: Remove history from exported file ---
+              // History is session/local state, not part of the permanent deck data.
              cleanedDeck.cards.forEach(card => {
+                 delete card.frontHighlightHistory;
+                 delete card.backHighlightHistory;
+                  // Ensure temporary source info is also removed, though shouldn't be on regular decks
                  delete card.sourceDeckName;
                  delete card.sourceCardFront;
              });
+
+             delete cleanedDeck.shuffledIndices;
+             delete cleanedDeck.displayName; // Should not be on regular decks anyway, but safety
 
 
             const dataStr = JSON.stringify(cleanedDeck, null, 2); // Pretty print JSON
@@ -1557,6 +1854,271 @@
                   populateDeckSelect();
              }
         });
+
+
+        // --- Highlighter Feature ---
+        
+        highlighterBtn.addEventListener('click', () => {
+            if (!currentDeck || currentDeck.cards.length === 0) return;
+            
+            isHighlighterActive = !isHighlighterActive; // Toggle highlighter mode
+            
+            if (isHighlighterActive) {
+                highlighterBtn.classList.add('active');
+                highlighterBtn.textContent = 'Highlighter (ON)';
+                 // Allow text selection when active
+                 flashcard.style.userSelect = 'text';
+                 flashcard.style.webkitUserSelect = 'text';
+                 flashcard.style.cursor = 'text';
+                 // Disable undo/reset while actively highlighting
+                 undoHighlightBtn.disabled = true;
+                 resetHighlightBtn.disabled = true;
+            } else {
+                highlighterBtn.classList.remove('active');
+                highlighterBtn.textContent = 'Highlighter';
+                 // Disable text selection when inactive
+                 flashcard.style.userSelect = 'none';
+                 flashcard.style.webkitUserSelect = 'none';
+                 flashcard.style.cursor = 'default';
+                 // Re-enable undo/reset buttons based on state
+                 updateHighlightButtons(isAnswerShowing);
+            }
+        });
+        
+        // Function to handle text selection and highlighting via mouseup on card faces
+        function handleCardSelection(event) {
+            if (!isHighlighterActive) return; // Only process when highlighter is active
+            
+            const selection = window.getSelection();
+            const selectedText = selection.toString().trim();
+            if (!selectedText) return; // No text selected
+            
+            // Check if selection is within a card face element (cardFront or cardBack)
+            const cardFaceElement = event.currentTarget;
+             if (!cardFaceElement || (!cardFaceElement.classList.contains('front') && !cardFaceElement.classList.contains('back'))) {
+                 console.warn("Mouseup outside of card face elements?", event.currentTarget);
+                 return; // Should not happen with the current listeners, but safety
+             }
+
+            const range = selection.getRangeAt(0);
+            
+            // Create a highlight span element (using the dedicated user-highlight class)
+            const highlightSpan = document.createElement('span');
+            highlightSpan.className = 'user-highlight'; // Use the specific class for user highlights
+            
+            try {
+                 // Ensure the selection is entirely within the current card face
+                 if (!cardFaceElement.contains(range.startContainer) || !cardFaceElement.contains(range.endContainer)) {
+                     console.warn("Selection spans outside the current card face element.");
+                      alert('Cannot highlight text that spans across different parts of the card face.');
+                     selection.removeAllRanges();
+                     return;
+                 }
+
+                 // --- History: Save current state before applying highlight ---
+                 const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
+                 const card = currentDeck.cards[actualCardIndex];
+                 const isBackFace = cardFaceElement.classList.contains('back');
+                 const history = isBackFace ? card.backHighlightHistory : card.frontHighlightHistory;
+
+                 // Store the current HTML state
+                 const currentHTML = cardFaceElement.innerHTML;
+
+                  // Check if the current HTML is different from the last history state to avoid duplicates
+                 if (history.length === 0 || history[history.length - 1] !== currentHTML) {
+                     // Add the current HTML to history, limiting the size
+                     history.push(currentHTML);
+                     if (history.length > MAX_HIGHLIGHT_HISTORY) {
+                         history.shift(); // Remove the oldest state
+                     }
+                 }
+                  // --- End History ---
+
+
+                // Apply the highlight - this is where surroundContents can fail on complex selections
+                range.surroundContents(highlightSpan);
+                
+                // Clear the selection after highlighting
+                selection.removeAllRanges();
+                
+                // Save the new highlighted content
+                saveHighlightedContent(isBackFace, cardFaceElement.innerHTML); // Pass the updated HTML
+
+
+            } catch (e) {
+                console.error('Error applying highlight:', e);
+                // This catch block is for when surroundContents fails due to complex DOM
+                alert('Could not apply highlight to this selection. Try selecting text within a single word or phrase, avoiding borders of existing highlights or formatting.');
+                 selection.removeAllRanges(); // Attempt to clear selection even on error
+            } finally {
+                 // Always update button states after a highlight attempt
+                 updateHighlightButtons(isAnswerShowing);
+            }
+        }
+        
+        // Function to save highlighted content back to the card object in storage
+        // Pass the updated HTML content explicitly
+        function saveHighlightedContent(isBackFace, updatedHTML) {
+            if (!currentDeck || currentDeck.cards.length === 0 || currentDeck.shuffledIndices.length === 0) return;
+            
+            const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
+             if (actualCardIndex < 0 || actualCardIndex >= currentDeck.cards.length) {
+                 console.error("Invalid actual card index during highlight save:", actualCardIndex);
+                 return;
+             }
+
+            const card = currentDeck.cards[actualCardIndex]; // This is the card object in the currentDeck array
+
+            // Update the highlighted property with the new HTML
+            if (isBackFace) {
+                card.backHighlighted = updatedHTML;
+            } else {
+                card.frontHighlighted = updatedHTML;
+            }
+            
+            // Save the *original* deck (or the Favorites view's source deck)
+            updateCardInOriginalDeck(card, (originalCard) => {
+                 // Copy the updated highlighted HTML
+                if (isBackFace) {
+                    originalCard.backHighlighted = card.backHighlighted;
+                     // Do NOT copy history to the original card in storage
+                     // originalCard.backHighlightHistory = card.backHighlightHistory; // <-- Removed
+                } else {
+                    originalCard.frontHighlighted = card.frontHighlighted;
+                    // Do NOT copy history to the original card in storage
+                    // originalCard.frontHighlightHistory = card.frontHighlightHistory; // <-- Removed
+                }
+                 // Note: updateCardInOriginalDeck handles saving the original deck.
+                 // The in-memory 'card' object in currentDeck is also updated by updateCardInOriginalDeck
+                 // because we pass the updateFunc to modify it if it's a regular deck view.
+                 // History is kept in the in-memory 'card' object for the current session.
+            });
+        }
+
+        // --- Undo and Reset Highlight Logic ---
+
+        undoHighlightBtn.addEventListener('click', () => {
+             if (!currentDeck || currentDeck.cards.length === 0 || currentDeck.shuffledIndices.length === 0) return;
+
+              const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
+              if (actualCardIndex < 0 || actualCardIndex >= currentDeck.cards.length) return;
+              const card = currentDeck.cards[actualCardIndex]; // Get the card object in the currentDeck array
+
+             const isBackFace = isAnswerShowing;
+             const history = isBackFace ? card.backHighlightHistory : card.frontHighlightHistory;
+             const cardFaceElement = isBackFace ? cardBack : cardFront;
+
+             if (history && history.length > 0) {
+                 // Pop the last state from history
+                 const previousHTML = history.pop();
+
+                 // Update the card face element's HTML
+                 cardFaceElement.innerHTML = previousHTML;
+
+                 // Update the saved highlighted property in the in-memory card object
+                 if (isBackFace) {
+                     // If history is now empty, reset saved highlight to undefined, otherwise set to the state we just restored
+                     card.backHighlighted = history.length > 0 ? previousHTML : undefined;
+                 } else {
+                      // If history is now empty, reset saved highlight to undefined, otherwise set to the state we just restored
+                     card.frontHighlighted = history.length > 0 ? previousHTML : undefined;
+                 }
+
+
+                 // Save the updated state (including modified highlighted property - history is not saved)
+                 // Need to update the original card in storage based on the in-memory 'card' state
+                 updateCardInOriginalDeck(card, (originalCard) => {
+                     // Copy the updated highlighted property from the in-memory card to the original
+                     if (isBackFace) {
+                          originalCard.backHighlighted = card.backHighlighted;
+                          // Do NOT save history to the original card
+                          // originalCard.backHighlightHistory = card.backHighlightHistory; // <-- Removed
+                     } else {
+                          originalCard.frontHighlighted = card.frontHighlighted;
+                          // Do NOT save history to the original card
+                          // originalCard.frontHighlightHistory = card.frontHighlightHistory; // <-- Removed
+                     }
+                     // Note: updateCardInOriginalDeck handles saving the original deck
+                 });
+
+                 // Update button states
+                 updateHighlightButtons(isBackFace);
+
+             } else {
+                 // History is empty, nothing to undo
+                 updateHighlightButtons(isBackFace); // Ensure button is disabled
+             }
+        });
+
+        resetHighlightBtn.addEventListener('click', () => {
+             if (!currentDeck || currentDeck.cards.length === 0 || currentDeck.shuffledIndices.length === 0) return;
+
+              const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
+              if (actualCardIndex < 0 || actualCardIndex >= currentDeck.cards.length) return;
+              const card = currentDeck.cards[actualCardIndex]; // Get the card object in the currentDeck array
+
+
+             const isBackFace = isAnswerShowing;
+             const cardFaceElement = isBackFace ? cardBack : cardFront;
+
+             // --- History: Save current state before resetting ---
+              const history = isBackFace ? card.backHighlightHistory : card.frontHighlightHistory;
+              const currentHTML = cardFaceElement.innerHTML;
+              // Only push to history if it's a different state
+              if (history.length === 0 || history[history.length - 1] !== currentHTML) {
+                  history.push(currentHTML);
+                  if (history.length > MAX_HIGHLIGHT_HISTORY) {
+                      history.shift();
+                  }
+              }
+             // --- End History ---
+
+
+             // Get the original text for the current face
+             const originalText = isBackFace ? card.back : card.front;
+
+             // Process the original text to re-apply ** syntax highlighting only
+             const cleanHTML = processSyntaxHighlighting(originalText);
+
+             // Update the card face element's HTML
+             cardFaceElement.innerHTML = cleanHTML;
+
+             // Clear the saved user-applied highlighted property in the in-memory card object
+             if (isBackFace) {
+                 card.backHighlighted = undefined; // Reset saved user highlight
+                 // History is NOT cleared on reset, so undo can still revert to the state before reset.
+                 // card.backHighlightHistory = []; // <-- Keep history
+             } else {
+                 card.frontHighlighted = undefined; // Reset saved user highlight
+                 // card.frontHighlightHistory = []; // <-- Keep history
+             }
+
+             // Save the updated state (cleared highlighted property, keeping history)
+             // Need to update the original card in storage based on the in-memory 'card' state
+              updateCardInOriginalDeck(card, (originalCard) => {
+                 // Copy the updated highlighted property from the in-memory card to the original
+                  if (isBackFace) {
+                       originalCard.backHighlighted = card.backHighlighted; // undefined
+                       // Do NOT save history to original card
+                       // originalCard.backHighlightHistory = card.backHighlightHistory; // <-- Removed
+                  } else {
+                       originalCard.frontHighlighted = card.frontHighlighted; // undefined
+                       // Do NOT save history to original card
+                       // originalCard.frontHighlightHistory = card.frontHighlightHistory; // <-- Removed
+                  }
+                  // Note: updateCardInOriginalDeck handles saving the original deck
+              });
+
+
+             // Update button states
+             updateHighlightButtons(isBackFace);
+
+        });
+
+
+        // Add event listeners for highlighting to the card face elements
+        cardFront.addEventListener('mouseup', handleCardSelection);
+        cardBack.addEventListener('mouseup', handleCardSelection);
 
 
         // --- Initialization ---

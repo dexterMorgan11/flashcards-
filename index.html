@@ -219,6 +219,22 @@
          #markNeedsReviewBtn { background-color: #ffc107; color: #333; } /* Yellow/Warning */
          #markNeedsReviewBtn:hover { background-color: #e0a800; }
 
+         /* Style for the Favorite button */
+         #toggleFavoriteBtn {
+            background-color: #ff7f00; /* Orange */
+            margin-left: 5px; /* Space it from the navigation buttons */
+            display: inline-block; /* Ensure it sits next to others */
+         }
+         #toggleFavoriteBtn:hover {
+            background-color: #cc6600;
+         }
+         #toggleFavoriteBtn.is-favorite {
+             background-color: #e74c3c; /* Red when favorited */
+         }
+         #toggleFavoriteBtn.is-favorite:hover {
+            background-color: #c0392b;
+         }
+
 
          .progress-controls {
              border-top: 1px solid #eee; /* Light border */
@@ -297,6 +313,20 @@
         body.dark-mode #markNeedsReviewBtn { background-color: #e0a800; color: #1e1e1e;} /* Darker Yellow */
         body.dark-mode #markNeedsReviewBtn:hover { background-color: #c49000; }
 
+         /* Dark mode favorite button styles */
+         body.dark-mode #toggleFavoriteBtn {
+             background-color: #d66c2c; /* Darker Orange */
+         }
+         body.dark-mode #toggleFavoriteBtn:hover {
+             background-color: #b35823;
+         }
+          body.dark-mode #toggleFavoriteBtn.is-favorite {
+             background-color: #e74c3c; /* Red stays similar, or slightly adjusted */
+         }
+         body.dark-mode #toggleFavoriteBtn.is-favorite:hover {
+            background-color: #c0392b;
+         }
+
 
         body.dark-mode .button-like-label {
              background-color: #48a65f;
@@ -373,6 +403,21 @@
              #progressDisplay {
                  text-align: center; /* Keep progress centered */
              }
+
+             /* Adjust button margins for stacking on small screens */
+             .controls button, .progress-controls button, .file-controls button, .button-like-label {
+                 margin-right: 0 !important; /* Override inline/previous margin */
+                 margin-bottom: 5px; /* Space between stacked buttons */
+             }
+             .controls button:last-child, .progress-controls button:last-child, .file-controls button:last-child {
+                 margin-bottom: 0;
+             }
+             #toggleFavoriteBtn { /* Separate favorite button margin */
+                 margin-top: 5px;
+                 margin-bottom: 5px;
+                 margin-left: 0 !important; /* Ensure left margin is also removed */
+             }
+
         }
 
         /* Add styles for disabled buttons */
@@ -440,6 +485,7 @@
             <select id="deckSelect">
                 <option value="">-- Select a Deck --</option>
                 <!-- Options populated by JavaScript from stored decks, grouped by folder -->
+                <!-- Including a special option for Favorites -->
             </select>
             <button id="loadDeckBtn">Load Selected Deck</button>
              <button id="deleteDeckBtn" class="danger-button">Delete Selected Deck</button>
@@ -457,6 +503,8 @@
                      <!-- Navigation buttons are standard in this mode -->
                      <button id="previousCardBtn">Previous Card</button>
                      <button id="nextCardBtn">Next Card</button>
+                     <!-- New button to toggle favorite status -->
+                     <button id="toggleFavoriteBtn">Mark as Favorite</button>
                 </div>
 
                  <!-- Removed SRS Rating Controls -->
@@ -503,39 +551,53 @@
         const nextCardBtn = document.getElementById('nextCardBtn');
         const previousCardBtn = document.getElementById('previousCardBtn');
         const randomizeCheckbox = document.getElementById('randomizeCheckbox');
-        const markKnownBtn = document.getElementById('markKnownBtn'); // Re-added
-        const markNeedsReviewBtn = document.getElementById('markNeedsReviewBtn'); // Re-added
+        const markKnownBtn = document.getElementById('markKnownBtn');
+        const markNeedsReviewBtn = document.getElementById('markNeedsReviewBtn');
+        const toggleFavoriteBtn = document.getElementById('toggleFavoriteBtn'); // New button
         const progressDisplay = document.getElementById('progressDisplay');
-        // const sessionProgressDisplay = document.getElementById('sessionProgressDisplay'); // Removed
         const importDeckInput = document.getElementById('importDeckInput');
         const exportCurrentDeckBtn = document.getElementById('exportCurrentDeckBtn');
         const deleteDeckBtn = document.getElementById('deleteDeckBtn');
         const learningArea = document.getElementById('learningArea');
         const deleteFolderBtn = document.getElementById('deleteFolderBtn');
-        // const sessionInfoDisplay = document.getElementById('sessionInfo'); // Removed
 
-         // Removed SRS Button References
-         // const srsControls = document.getElementById('srs-controls');
-         // const rateAgainBtn = document.getElementById('rateAgainBtn');
-         // const rateGoodBtn = document.getElementById('rateGoodBtn');
-         // const rateEasyBtn = document.getElementById('rateEasyBtn');
-
-
-        let currentDeck = null; // { name: '...', folder: '...', cards: [{front:'...', back:'...', status:'...'}, ...], shuffledIndices: [...] }
-        // let reviewQueue = []; // Removed review queue
+        let currentDeck = null; // { name: '...', folder: '...', cards: [{front:'...', back:'...', status:'...', isFavorite: boolean, sourceDeckName?: string, sourceCardFront?: string}], shuffledIndices: [...] }
         let currentCardIndex = 0; // Index within the shuffled/original order
         let isAnswerShowing = false;
 
         const DECK_STORAGE_KEY = 'flashcardsDecksCollection';
         const UNSORTED_FOLDER_KEY = "__UNSORTED__";
-
+        const ALL_FAVORITES_KEY = "__ALL_FAVORITES__"; // Special key for the Favorites view
 
          // --- Deck Management (Collection in localStorage) ---
 
          // Helper to get all decks from localStorage
          function getAllDecksFromStorage() {
              try {
-                return JSON.parse(localStorage.getItem(DECK_STORAGE_KEY) || '{}');
+                const decks = JSON.parse(localStorage.getItem(DECK_STORAGE_KEY) || '{}');
+                // Ensure basic properties exist for compatibility with older saves
+                 for (const deckName in decks) {
+                     const deck = decks[deckName];
+                     if (!Array.isArray(deck.cards)) {
+                          console.warn(`Deck "${deckName}" has invalid cards array.`);
+                          delete decks[deckName]; // Remove invalid deck
+                          continue;
+                     }
+                      deck.cards.forEach(card => {
+                          if (!card.status) card.status = 'new';
+                          if (typeof card.isFavorite !== 'boolean') card.isFavorite = false; // Add default favorite status
+                          // Remove old SRS properties if they exist
+                          delete card.interval;
+                          delete card.repetitions;
+                          delete card.easeFactor;
+                          delete card.dueDate;
+                      });
+                      if (typeof deck.folder !== 'string' && typeof deck.folder !== 'undefined') {
+                           deck.folder = undefined; // Ensure folder is string or undefined
+                      }
+                     // Shuffled indices will be handled on load
+                 }
+                 return decks;
              } catch (e) {
                  console.error("Error parsing decks from localStorage:", e);
                  alert("Error loading your saved decks. Your local storage might be corrupted. Clearing storage to prevent further issues.");
@@ -551,81 +613,113 @@
 
         // Function to save a single deck (updates the collection in localStorage)
         function saveDeck(deck) {
-            const decks = getAllDecksFromStorage();
+            const decks = getAllDecksFromStorage(); // Get the latest state first
             decks[deck.name] = deck; // Store/update by name
             saveAllDecksToStorage(decks); // Save the entire updated collection
-            populateFolderSelect(); // Refresh folder dropdown
-            populateDeckSelect(); // Refresh deck dropdown
+            // Note: Does NOT repopulate selects or reload currentDeck here.
+            // This is handled by explicit calls or events after save/load actions.
         }
 
-        // Function to load a deck by name
+        // Function to load a deck by name or the special Favorites collection
         function loadDeck(deckName) {
             const decks = getAllDecksFromStorage();
-            const deckToLoad = decks[deckName];
-            if (deckToLoad) {
-                currentDeck = deckToLoad;
-                currentCardIndex = 0; // Start at the beginning of the loaded deck
+            let deckToLoad = null;
+            let cardsToLoad = [];
+            let deckDisplayName = "";
+            let isFavoritesView = false;
 
-                // Ensure necessary properties exist for compatibility
-                 if (!Array.isArray(currentDeck.cards)) {
-                     console.error("Loaded deck has invalid cards array:", deckName);
-                     alert("Error loading deck. Cards data is invalid.");
-                     resetLearningArea();
-                     return;
+            if (deckName === ALL_FAVORITES_KEY) {
+                 isFavoritesView = true;
+                 deckDisplayName = "All Favorite Cards";
+                 // Collect all favorite cards from all decks
+                 for (const name in decks) {
+                     if (decks.hasOwnProperty(name)) {
+                         const deck = decks[name];
+                         deck.cards.forEach(card => {
+                             if (card.isFavorite) {
+                                 // For favorites view, add metadata to reference the original card
+                                 cardsToLoad.push({
+                                     ...card, // Copy existing properties
+                                     sourceDeckName: deck.name, // Add source deck name
+                                     sourceCardFront: card.front // Add source card front for lookup
+                                 });
+                             }
+                         });
+                     }
                  }
-                 // Ensure basic status property exists (for compatibility with older saves or imported SRS decks)
-                 currentDeck.cards.forEach(card => {
-                     if (!card.status) card.status = 'new';
-                     // Remove old SRS properties if they exist
-                     delete card.interval;
-                     delete card.repetitions;
-                     delete card.easeFactor;
-                     delete card.dueDate;
-                 });
-                 // Ensure folder property exists (even if undefined)
-                 if (typeof currentDeck.folder !== 'string' && typeof currentDeck.folder !== 'undefined') {
-                      currentDeck.folder = undefined;
-                 }
-
-
-                // Ensure shuffledIndices exists and is correct length, or create/recreate it
-                if (!currentDeck.shuffledIndices || currentDeck.shuffledIndices.length !== currentDeck.cards.length) {
-                     console.warn(`Deck "${deckName}" shuffled indices mismatch or missing. Re-generating original order.`);
-                     currentDeck.shuffledIndices = Array.from({length: currentDeck.cards.length}, (_, i) => i);
-                }
-
-                // Apply randomization if checked (shuffles the indices)
-                if (randomizeCheckbox.checked) {
-                     currentDeck.shuffledIndices = shuffleArray(Array.from({length: currentDeck.cards.length}, (_, i) => i)); // Shuffle fresh indices
-                } else {
-                     // If not random, ensure it's in original order (0, 1, 2...)
-                     currentDeck.shuffledIndices = Array.from({length: currentDeck.cards.length}, (_, i) => i);
-                }
-
-                displayCurrentCard(); // Display the first card in the chosen order
-                updateProgressDisplay();
-                // updateSessionProgressDisplay(); // Removed session progress
-                // sessionInfoDisplay.textContent = ""; // Clear session info
-                learningArea.style.display = 'flex';
-                deckSelect.value = deckName; // Keep deck dropdown in sync
-
-                 // Enable learning buttons (standard navigation)
-                showAnswerBtn.disabled = false;
-                nextCardBtn.disabled = false; // Navigation buttons enabled
-                previousCardBtn.disabled = false; // Navigation buttons enabled
-                 // srsControls.style.display = 'none'; // Hide SRS buttons (already removed from HTML)
-                 markKnownBtn.disabled = false; // Basic progress buttons enabled
-                 markNeedsReviewBtn.disabled = false; // Basic progress buttons enabled
-
-
-                exportCurrentDeckBtn.disabled = false;
-
+                // Create a temporary deck object for the favorites view
+                 deckToLoad = {
+                     name: ALL_FAVORITES_KEY, // Use the special key as the name
+                     displayName: deckDisplayName, // Store a display name
+                     folder: undefined, // No folder for favorites collection
+                     cards: cardsToLoad
+                 };
 
             } else {
-                console.error("Deck not found in storage:", deckName);
-                alert("Error loading deck. It might have been deleted or corrupted.");
-                 resetLearningArea();
+                 // Loading a regular deck
+                deckToLoad = decks[deckName];
+                if (deckToLoad) {
+                    deckDisplayName = deckToLoad.name;
+                    cardsToLoad = deckToLoad.cards;
+                } else {
+                     console.error("Deck not found in storage:", deckName);
+                     alert("Error loading deck. It might have been deleted or corrupted.");
+                     resetLearningArea();
+                     populateDeckSelect(); // Refresh options in case of deletion
+                     return;
+                }
             }
+
+            if (!deckToLoad || !Array.isArray(deckToLoad.cards) || deckToLoad.cards.length === 0) {
+                 alert(`No cards found ${isFavoritesView ? 'in your favorites' : `in deck "${deckName}"`}.`);
+                 resetLearningArea(); // Clear learning area
+                 populateDeckSelect(); // Refresh options
+                 return;
+            }
+
+
+            currentDeck = deckToLoad; // Set the current deck object
+            currentCardIndex = 0; // Start at the beginning of the loaded deck's cards
+
+            // Ensure shuffledIndices exists and is correct length, or create/recreate it
+            if (!currentDeck.shuffledIndices || currentDeck.shuffledIndices.length !== currentDeck.cards.length || isFavoritesView) {
+                 // Always regenerate indices for Favorites view or if missing/mismatch
+                 console.warn(`${isFavoritesView ? 'Favorites view' : `Deck "${deckName}"`} shuffled indices mismatch or missing. Re-generating ${isFavoritesView ? 'order' : 'original order'}.`);
+                 currentDeck.shuffledIndices = Array.from({length: currentDeck.cards.length}, (_, i) => i);
+            }
+
+            // Apply randomization if checked (shuffles the indices)
+            if (randomizeCheckbox.checked) {
+                 currentDeck.shuffledIndices = shuffleArray(Array.from({length: currentDeck.cards.length}, (_, i) => i)); // Shuffle fresh indices
+            } else if (!isFavoritesView){
+                 // If not random and not favorites view, ensure it's in original order (0, 1, 2...)
+                 // Don't reset favorites view order unless re-shuffling
+                 currentDeck.shuffledIndices = Array.from({length: currentDeck.cards.length}, (_, i) => i);
+            }
+             // Note: Shuffling indices for the temporary favorites deck determines the order for *this session*.
+             // This order is NOT saved back to localStorage unless we explicitly save the temporary deck object,
+             // which isn't necessary or desirable for the favorites view.
+
+            document.querySelector('.learning-section h2').textContent = `Learn: ${deckDisplayName}`; // Update section title
+
+            displayCurrentCard(); // Display the first card in the chosen order
+            updateProgressDisplay();
+            learningArea.style.display = 'flex';
+            deckSelect.value = deckName; // Keep deck dropdown in sync
+
+             // Enable learning buttons
+            showAnswerBtn.disabled = false;
+            nextCardBtn.disabled = false;
+            previousCardBtn.disabled = false;
+            markKnownBtn.disabled = false;
+            markNeedsReviewBtn.disabled = false;
+            toggleFavoriteBtn.disabled = false; // Enable favorite button
+
+            // Enable export button only if NOT in Favorites view
+            exportCurrentDeckBtn.disabled = isFavoritesView;
+             // Delete deck button disabled in Favorites view
+             deleteDeckBtn.disabled = isFavoritesView;
+
         }
 
         function populateFolderSelect() {
@@ -672,6 +766,13 @@
             const groupedDecks = {};
             const UNSORTED_FOLDER_LABEL = "Unsorted Decks";
 
+            // Add the special "All Favorites" option at the top
+            const favoritesOption = document.createElement('option');
+            favoritesOption.value = ALL_FAVORITES_KEY;
+            favoritesOption.textContent = "⭐ All Favorite Cards";
+            deckSelect.appendChild(favoritesOption);
+
+
             deckNames.forEach(deckName => {
                 const deck = decks[deckName];
                 const folder = (deck.folder && typeof deck.folder === 'string' && deck.folder.trim()) || UNSORTED_FOLDER_KEY;
@@ -697,49 +798,56 @@
                 folderDecks.forEach(deck => {
                     const option = document.createElement('option');
                     option.value = deck.name;
-                    option.textContent = deck.name;
+                    option.textContent = deck.name; // Maybe add card counts later?
                     optgroup.appendChild(option);
                 });
 
                 deckSelect.appendChild(optgroup);
             });
 
+            // Try to re-select the current deck if it still exists
              if(currentDeck && decks[currentDeck.name]) {
                  deckSelect.value = currentDeck.name;
-             } else {
-                 resetLearningArea();
+             } else if (currentDeck && currentDeck.name === ALL_FAVORITES_KEY) {
+                 deckSelect.value = ALL_FAVORITES_KEY;
+             }
+             else {
+                 resetLearningArea(); // Reset if the current deck was deleted
                  deckSelect.value = "";
              }
 
              const hasDecks = deckNames.length > 0;
-             loadDeckBtn.disabled = !hasDecks;
-             deleteDeckBtn.disabled = !hasDecks;
-             exportCurrentDeckBtn.disabled = !currentDeck; // Only enable if a deck is loaded
+             // Load button enabled if *any* option is selected (including Favorites)
+             // Delete/Export buttons enabled only if a *regular* deck is selected or loaded
+             loadDeckBtn.disabled = false; // Assume something is selectable initially
+             deleteDeckBtn.disabled = (deckSelect.value === "" || deckSelect.value === ALL_FAVORITES_KEY);
+             exportCurrentDeckBtn.disabled = (currentDeck === null || currentDeck.name === ALL_FAVORITES_KEY);
         }
 
          function resetLearningArea() {
               currentDeck = null;
-              // reviewQueue = []; // Removed review queue
               currentCardIndex = 0; // Reset index
 
               learningArea.style.display = 'none';
               cardFront.textContent = "";
               cardBack.textContent = "";
               progressDisplay.textContent = "";
-              // sessionProgressDisplay.textContent = ""; // Removed session progress
-              // sessionInfoDisplay.textContent = ""; // Removed session info
 
+              document.querySelector('.learning-section h2').textContent = 'Learn Decks'; // Reset title
 
               showAnswerBtn.disabled = true;
               nextCardBtn.disabled = true; // Navigation buttons disabled
               previousCardBtn.disabled = true; // Navigation buttons disabled
-              // srsControls.style.display = 'none'; // Removed
-
               markKnownBtn.disabled = true; // Basic progress buttons disabled
               markNeedsReviewBtn.disabled = true; // Basic progress buttons disabled
+              toggleFavoriteBtn.disabled = true; // Favorite button disabled
+              toggleFavoriteBtn.textContent = 'Mark as Favorite'; // Reset text
+              toggleFavoriteBtn.classList.remove('is-favorite'); // Reset class
 
 
               exportCurrentDeckBtn.disabled = true;
+              deleteDeckBtn.disabled = true; // Disable delete button when no deck is loaded
+              deckSelect.value = ""; // Reset deck select dropdown
          }
 
          function updateDeleteFolderButtonState() {
@@ -774,10 +882,12 @@
 
 
             const existingDecks = getAllDecksFromStorage();
+            let overwrite = false;
             if (existingDecks[deckName]) {
-                 if (!confirm(`Deck "${deckName}" already exists. Do you want to overwrite it? This will replace the cards and reset progress for this deck.`)) { // Reverted message
+                 if (!confirm(`Deck "${deckName}" already exists. Do you want to overwrite it? This will replace the cards and reset progress/favorites for this deck.`)) {
                      return;
                  }
+                 overwrite = true;
             }
 
 
@@ -790,6 +900,7 @@
                          front: parts[1].trim(),
                          back: parts[2].trim(),
                          status: 'new', // Start as new
+                         isFavorite: false // Default to not favorited
                           // Removed SRS properties: interval, repetitions, easeFactor, dueDate
                       });
                 } else if (line.trim() !== '') {
@@ -800,12 +911,12 @@
             if (cards.length > 0) {
                 const newDeck = {
                     name: deckName,
-                    folder: folderName || undefined,
+                    folder: folderName || undefined, // Store empty folder as undefined
                     cards: cards,
-                    shuffledIndices: Array.from({length: cards.length}, (_, i) => i) // Initial order is unshuffled
+                    // shuffledIndices are generated on load, not saved with the deck
                 };
 
-                saveDeck(newDeck);
+                saveDeck(newDeck); // Save the new/updated deck
 
                 alert(`Deck "${deckName}" saved/updated with ${cards.length} cards${folderName ? ` in folder "${folderName}"` : ''}.`);
                 textInput.value = '';
@@ -815,7 +926,9 @@
 
                 deckNameInput.value = '';
 
-                 deckSelect.value = deckName;
+                 populateFolderSelect(); // Refresh dropdowns after saving
+                 populateDeckSelect();
+
                  resetLearningArea(); // Clear learning area - force user to click Load
 
             } else {
@@ -843,14 +956,14 @@
                 loadDeck(selectedDeckName);
             } else {
                 resetLearningArea();
-                alert("Please select a deck to load.");
+                alert("Please select a deck or 'All Favorite Cards' to load.");
             }
         });
 
          // Function to display the current card from the shuffled/original order
         function displayCurrentCard() {
             if (!currentDeck || !currentDeck.cards || currentDeck.cards.length === 0 || !currentDeck.shuffledIndices || currentDeck.shuffledIndices.length === 0) {
-                 cardFront.textContent = "No cards available in this deck.";
+                 cardFront.textContent = "No cards available in this deck/view.";
                  cardBack.textContent = "";
                  cardBack.classList.add('hidden'); // Hide back
                  cardFront.classList.remove('hidden'); // Ensure front is visible (or just show "No cards")
@@ -858,16 +971,18 @@
                   updateProgressDisplay(); // Clear progress display or show 0/0
                  // Disable card controls if no cards
                  showAnswerBtn.disabled = true;
-                 nextCardBtn.disabled = true; // Navigation buttons disabled
-                 previousCardBtn.disabled = true; // Navigation buttons disabled
-                 markKnownBtn.disabled = true; // Basic progress buttons disabled
-                 markNeedsReviewBtn.disabled = true; // Basic progress buttons disabled
+                 nextCardBtn.disabled = true;
+                 previousCardBtn.disabled = true;
+                 markKnownBtn.disabled = true;
+                 markNeedsReviewBtn.disabled = true;
+                 toggleFavoriteBtn.disabled = true; // Disable favorite button
+                 toggleFavoriteBtn.textContent = 'Mark as Favorite'; // Reset text
+                 toggleFavoriteBtn.classList.remove('is-favorite'); // Reset class
                  return;
             }
 
             // Ensure currentCardIndex is within bounds
              currentCardIndex = Math.max(0, Math.min(currentCardIndex, currentDeck.shuffledIndices.length - 1));
-
 
             // Get the actual card index from the shuffled/ordered indices array
             const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
@@ -880,6 +995,15 @@
                  cardFront.classList.remove('hidden');
                  isAnswerShowing = false;
                  updateProgressDisplay();
+                 // Keep controls disabled or handle gracefully? Let's disable.
+                 showAnswerBtn.disabled = true;
+                 nextCardBtn.disabled = true;
+                 previousCardBtn.disabled = true;
+                 markKnownBtn.disabled = true;
+                 markNeedsReviewBtn.disabled = true;
+                 toggleFavoriteBtn.disabled = true;
+                 toggleFavoriteBtn.textContent = 'Mark as Favorite';
+                 toggleFavoriteBtn.classList.remove('is-favorite');
                  return;
              }
 
@@ -893,12 +1017,16 @@
             cardBack.classList.add('hidden');     // Hide back
             isAnswerShowing = false; // Reset state to show front
 
+             // Update favorite button state
+             updateFavoriteButtonState(card.isFavorite);
+
              // Show/Enable relevant controls
              showAnswerBtn.disabled = false;
-             nextCardBtn.disabled = false; // Navigation buttons enabled
-             previousCardBtn.disabled = false; // Navigation buttons enabled
-             markKnownBtn.disabled = false; // Basic progress buttons enabled
-             markNeedsReviewBtn.disabled = false; // Basic progress buttons enabled
+             nextCardBtn.disabled = false;
+             previousCardBtn.disabled = false;
+             markKnownBtn.disabled = false;
+             markNeedsReviewBtn.disabled = false;
+             toggleFavoriteBtn.disabled = false; // Enable favorite button
 
 
             updateProgressDisplay(); // Update display with current card number and overall progress
@@ -911,20 +1039,11 @@
                     cardFront.classList.add('hidden');    // Hide front
                     cardBack.classList.remove('hidden'); // Show back
                     isAnswerShowing = true;
-
-                     // Re-enable marking buttons after answer is shown (optional - could be always enabled)
-                     // markKnownBtn.disabled = false;
-                     // markNeedsReviewBtn.disabled = false;
-
                 } else {
                     // Currently showing back, show front
                     cardBack.classList.add('hidden');    // Hide back
                     cardFront.classList.remove('hidden'); // Show front
                     isAnswerShowing = false;
-
-                     // Maybe disable marking buttons again? Depends on desired flow.
-                     // markKnownBtn.disabled = true;
-                     // markNeedsReviewBtn.disabled = true;
                 }
             }
         });
@@ -957,8 +1076,10 @@
                 }
                 currentCardIndex = 0; // Start from the beginning of the new order
                 displayCurrentCard(); // Display the first card in the new order
-                 // Save the current state including the new shuffled/unshuffled indices for this deck
-                 saveDeck(currentDeck); // This saves the whole deck object, including the new shuffledIndices
+                 // Only save shuffledIndices if it's a regular deck, not the temporary favorites view
+                 if (currentDeck.name !== ALL_FAVORITES_KEY) {
+                    saveDeck(currentDeck); // Save the whole deck object, including the new shuffledIndices
+                 }
             }
              // If no deck is loaded, the change just affects the setting for the *next* loaded deck
         });
@@ -973,17 +1094,192 @@
             return shuffled;
         }
 
+
+        // --- Favorite Logic ---
+
+        function updateFavoriteButtonState(isFavorite) {
+             if (isFavorite) {
+                 toggleFavoriteBtn.textContent = 'Unmark Favorite';
+                 toggleFavoriteBtn.classList.add('is-favorite');
+             } else {
+                 toggleFavoriteBtn.textContent = 'Mark as Favorite';
+                 toggleFavoriteBtn.classList.remove('is-favorite');
+             }
+        }
+
+        toggleFavoriteBtn.addEventListener('click', () => {
+             if (!currentDeck || currentDeck.cards.length === 0 || currentDeck.shuffledIndices.length === 0) {
+                 return; // Should be disabled if no cards, but safety check
+             }
+
+             const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
+             const card = currentDeck.cards[actualCardIndex];
+
+             // Toggle favorite status
+             card.isFavorite = !card.isFavorite;
+
+             // Update button state immediately
+             updateFavoriteButtonState(card.isFavorite);
+
+             // Now, update and save the *original* deck where this card resides
+             // This is necessary especially if we are in the "All Favorites" view
+             let originalDeckName;
+             let cardFrontToFind;
+
+             if (currentDeck.name === ALL_FAVORITES_KEY) {
+                 // In Favorites view, use the stored source info
+                 originalDeckName = card.sourceDeckName;
+                 cardFrontToFind = card.sourceCardFront; // Use original front for lookup
+                 // If card content was changed in the source deck after favoriting,
+                 // this lookup by front might fail. A unique ID would be more robust.
+             } else {
+                 // In a regular deck view, the source is the current deck
+                 originalDeckName = currentDeck.name;
+                 cardFrontToFind = card.front; // Use current front for lookup
+             }
+
+             if (originalDeckName) {
+                 const decks = getAllDecksFromStorage();
+                 const originalDeck = decks[originalDeckName];
+
+                 if (originalDeck && Array.isArray(originalDeck.cards)) {
+                     // Find the card in the original deck by its front content (assuming front is unique per deck)
+                     const originalCard = originalDeck.cards.find(c => c.front === cardFrontToFind);
+
+                     if (originalCard) {
+                         // Update the favorite status on the original card object
+                         originalCard.isFavorite = card.isFavorite;
+
+                         // Save the original deck back to storage
+                         saveDeck(originalDeck);
+                         console.log(`Card "${card.front}" in deck "${originalDeckName}" favorite status toggled.`);
+
+                         // If we are in the All Favorites view and just unmarked a card,
+                         // should we remove it from the current session? Yes, makes sense.
+                         if (currentDeck.name === ALL_FAVORITES_KEY && !card.isFavorite) {
+                              // Remove the card from the *current temporary* shuffledIndices and cards list
+                              // Find the index of the current *shuffled* card in the shuffledIndices array
+                              const currentShuffledIndexInIndices = currentDeck.shuffledIndices.indexOf(actualCardIndex);
+
+                              if (currentShuffledIndexInIndices > -1) {
+                                  // Remove the entry from shuffledIndices
+                                  currentDeck.shuffledIndices.splice(currentShuffledIndexInIndices, 1);
+
+                                  // Remove the card from the *temporary* cards array (optional but keeps it in sync)
+                                  currentDeck.cards.splice(actualCardIndex, 1);
+
+                                  // Adjust subsequent indices in shuffledIndices if necessary (complex!)
+                                   // Easier: Re-generate shuffledIndices for the remaining temporary cards
+                                  currentDeck.shuffledIndices = Array.from({length: currentDeck.cards.length}, (_, i) => i);
+                                   // Re-shuffle if randomization is on
+                                   if (randomizeCheckbox.checked) {
+                                       currentDeck.shuffledIndices = shuffleArray(currentDeck.shuffledIndices);
+                                   }
+
+
+                                  // Move to the next card in the updated list
+                                  if (currentDeck.shuffledIndices.length > 0) {
+                                       // Adjust currentCardIndex if the removed card was before it
+                                       // Or simply move to the next index, wrap around if needed
+                                       currentCardIndex = currentCardIndex % currentDeck.shuffledIndices.length; // Stay within new bounds
+                                       displayCurrentCard();
+                                  } else {
+                                       // No cards left in the favorites session
+                                       alert("No more favorite cards left in this view.");
+                                       resetLearningArea();
+                                       populateDeckSelect(); // Refresh options
+                                  }
+                                   updateProgressDisplay(); // Update progress for the favorites view
+                              } else {
+                                   console.error("Error finding current card in shuffled indices array.");
+                              }
+
+
+                         } else {
+                              // If not in favorites view, or if favoriting, just update progress display
+                              updateProgressDisplay();
+                         }
+
+
+                     } else {
+                         console.error(`Could not find original card "${cardFrontToFind}" in deck "${originalDeckName}" to toggle favorite status.`);
+                         alert("Error updating favorite status. Could not find the original card.");
+                     }
+                 } else {
+                     console.error(`Could not find original deck "${originalDeckName}" in storage to toggle favorite status.`);
+                     alert("Error updating favorite status. Could not find the source deck.");
+                 }
+             } else {
+                 console.error("No source deck information available for this card.");
+                 alert("Error updating favorite status.");
+             }
+        });
+
+
         // --- Progress Tracking (Basic Status) ---
+
+        // Helper function to find and update a card in its original deck in localStorage
+        function updateCardInOriginalDeck(currentCard, updateFunc) {
+             if (!currentCard) return false;
+
+             let originalDeckName;
+             let cardFrontToFind; // Using front for lookup
+
+             if (currentDeck.name === ALL_FAVORITES_KEY) {
+                 // In Favorites view, use the stored source info
+                 originalDeckName = currentCard.sourceDeckName;
+                 cardFrontToFind = currentCard.sourceCardFront;
+             } else {
+                 // In a regular deck view, the source is the current deck
+                 originalDeckName = currentDeck.name;
+                 cardFrontToFind = currentCard.front;
+             }
+
+            if (originalDeckName) {
+                const decks = getAllDecksFromStorage();
+                const originalDeck = decks[originalDeckName];
+
+                if (originalDeck && Array.isArray(originalDeck.cards)) {
+                    const originalCard = originalDeck.cards.find(c => c.front === cardFrontToFind);
+
+                    if (originalCard) {
+                        // Apply the update function (e.g., change status)
+                        updateFunc(originalCard);
+                        // Save the modified deck
+                        saveDeck(originalDeck);
+                        return true; // Success
+                    } else {
+                         console.error(`Could not find original card "${cardFrontToFind}" in deck "${originalDeckName}" for update.`);
+                    }
+                } else {
+                     console.error(`Could not find original deck "${originalDeckName}" in storage for update.`);
+                }
+            } else {
+                console.error("No source deck information available for this card for update.");
+            }
+            return false; // Failure
+        }
+
 
         markKnownBtn.addEventListener('click', () => {
              if (currentDeck && currentDeck.cards.length > 0 && currentDeck.shuffledIndices.length > 0) {
                  const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
                   if (actualCardIndex >= 0 && actualCardIndex < currentDeck.cards.length) {
-                     currentDeck.cards[actualCardIndex].status = 'known';
-                     saveDeck(currentDeck); // Save progress (saves the whole deck with updated status)
-                     updateProgressDisplay();
-                      // Optional: Move to the next card automatically after marking
-                      // nextCardBtn.click();
+                     const card = currentDeck.cards[actualCardIndex]; // Get the current card object
+
+                     // Update status in the original deck in storage
+                     const updated = updateCardInOriginalDeck(card, (originalCard) => {
+                          originalCard.status = 'known';
+                          card.status = 'known'; // Update status in the current view as well
+                     });
+
+                     if (updated) {
+                        updateProgressDisplay();
+                        // Optional: Move to the next card automatically after marking
+                        // nextCardBtn.click();
+                     } else {
+                         alert("Error marking card as known.");
+                     }
                   }
              }
         });
@@ -992,11 +1288,21 @@
              if (currentDeck && currentDeck.cards.length > 0 && currentDeck.shuffledIndices.length > 0) {
                  const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
                   if (actualCardIndex >= 0 && actualCardIndex < currentDeck.cards.length) {
-                     currentDeck.cards[actualCardIndex].status = 'needsReview';
-                     saveDeck(currentDeck); // Save progress
-                     updateProgressDisplay();
-                      // Optional: Move to the next card automatically after marking
-                      // nextCardBtn.click();
+                      const card = currentDeck.cards[actualCardIndex]; // Get the current card object
+
+                      // Update status in the original deck in storage
+                      const updated = updateCardInOriginalDeck(card, (originalCard) => {
+                           originalCard.status = 'needsReview';
+                            card.status = 'needsReview'; // Update status in the current view as well
+                      });
+
+                     if (updated) {
+                        updateProgressDisplay();
+                        // Optional: Move to the next card automatically after marking
+                        // nextCardBtn.click();
+                     } else {
+                         alert("Error marking card as 'Needs Review'.");
+                     }
                   }
              }
         });
@@ -1004,19 +1310,29 @@
 
         function updateProgressDisplay() {
             if (currentDeck && currentDeck.cards && currentDeck.cards.length > 0) {
-                const knownCount = currentDeck.cards.filter(card => card.status === 'known').length;
-                 const needsReviewCount = currentDeck.cards.filter(card => card.status === 'needsReview').length;
-                 const newCount = currentDeck.cards.filter(card => card.status === 'new').length;
-                const totalCards = currentDeck.cards.length;
-                const knownPercentage = totalCards > 0 ? ((knownCount / totalCards) * 100).toFixed(0) : 0;
 
-                 // Display current card number based on the *display* order (shuffled/unshuffled indices)
-                 const currentCardNumberDisplay = currentDeck.shuffledIndices && currentDeck.shuffledIndices.length > 0 ? currentCardIndex + 1 : 0;
-                 const totalCardsInView = currentDeck.shuffledIndices ? currentDeck.shuffledIndices.length : 0; // This should be the same as totalCards
+                const totalCardsInView = currentDeck.shuffledIndices ? currentDeck.shuffledIndices.length : 0;
+                 const currentCardNumberDisplay = totalCardsInView > 0 ? currentCardIndex + 1 : 0;
 
-                progressDisplay.innerHTML = `Card: ${currentCardNumberDisplay}/${totalCardsInView}<br>
-                                            Deck Status: ${knownCount} Known / ${needsReviewCount} Review / ${newCount} New<br>
-                                            Overall Progress: ${knownPercentage}% Known`;
+
+                if (currentDeck.name === ALL_FAVORITES_KEY) {
+                     // For Favorites view, just show count and current card number
+                     const totalFavorites = currentDeck.cards.length; // Total cards currently in the favorite view
+                     progressDisplay.innerHTML = `Card: ${currentCardNumberDisplay}/${totalCardsInView}<br>
+                                                  Total Favorites: ${totalFavorites}`;
+                } else {
+                     // For regular decks, show standard progress counts
+                     const knownCount = currentDeck.cards.filter(card => card.status === 'known').length;
+                      const needsReviewCount = currentDeck.cards.filter(card => card.status === 'needsReview').length;
+                      const newCount = currentDeck.cards.filter(card => card.status === 'new').length;
+                     const totalCards = currentDeck.cards.length; // Total cards in the original deck
+                     const knownPercentage = totalCards > 0 ? ((knownCount / totalCards) * 100).toFixed(0) : 0;
+
+
+                    progressDisplay.innerHTML = `Card: ${currentCardNumberDisplay}/${totalCardsInView}<br>
+                                                Deck Status: ${knownCount} Known / ${needsReviewCount} Review / ${newCount} New<br>
+                                                Overall Progress: ${knownPercentage}% Known`;
+                }
 
             } else {
                  progressDisplay.textContent = '';
@@ -1038,35 +1354,50 @@
                     // Basic validation: Check if it looks like a deck object
                     if (importedDeck && typeof importedDeck.name === 'string' && Array.isArray(importedDeck.cards)) {
 
-                         // Add default status and folder if missing from imported data (for compatibility)
+                         // Clean up and ensure necessary properties for imported cards
                          importedDeck.cards.forEach(card => {
-                             // If importing a file from the SRS version, preserve status if possible, otherwise default
+                             // If importing from old format or SRS, set default status/favorite
                              if (!card.status || (card.status !== 'new' && card.status !== 'known' && card.status !== 'needsReview')) {
                                  card.status = 'new';
+                             }
+                              if (typeof card.isFavorite !== 'boolean') { // Add default favorite status if missing
+                                 card.isFavorite = false;
                              }
                              // Remove old SRS properties if they exist in the imported file
                              delete card.interval;
                              delete card.repetitions;
                              delete card.easeFactor;
                              delete card.dueDate;
+                             // Also remove temporary source info if present from a favorited export (unlikely but safe)
+                             delete card.sourceDeckName;
+                             delete card.sourceCardFront;
                          });
+                          // Ensure folder property exists (string or undefined)
                          if (typeof importedDeck.folder !== 'string' && typeof importedDeck.folder !== 'undefined') {
-                            importedDeck.folder = undefined; // Ensure folder is string or undefined
+                            importedDeck.folder = undefined;
                          }
 
 
-                         // Re-generate shuffledIndices based on the cards array length
-                         importedDeck.shuffledIndices = Array.from({length: importedDeck.cards.length}, (_, i) => i);
+                         // We don't save shuffledIndices with the deck file itself
+                         delete importedDeck.shuffledIndices;
+                         delete importedDeck.displayName; // Remove temporary display name if present
 
 
                          // Check if a deck with this name already exists and confirm overwrite
                          const existingDecks = getAllDecksFromStorage();
                          if (existingDecks[importedDeck.name]) {
-                             if (!confirm(`A deck named "${importedDeck.name}" already exists in your browser. Do you want to overwrite it with the imported file? This will replace the existing deck and its progress.`)) {
+                             if (!confirm(`A deck named "${importedDeck.name}" already exists in your browser. Do you want to overwrite it with the imported file? This will replace the existing deck and its progress/favorites.`)) {
                                  // User cancelled import
                                  event.target.value = ''; // Reset file input
                                  return;
                              }
+                         }
+
+                         // Check if the imported deck name is the special favorites key
+                         if (importedDeck.name === ALL_FAVORITES_KEY) {
+                              alert(`Cannot import a deck with the reserved name "${ALL_FAVORITES_KEY}". Please rename the deck file.`);
+                              event.target.value = ''; // Reset file input
+                              return;
                          }
 
 
@@ -1076,8 +1407,13 @@
                          alert(`Deck "${importedDeck.name}" imported and saved to your browser successfully!`);
 
                          // Select the newly imported deck in the dropdown
-                         deckSelect.value = importedDeck.name;
-                         resetLearningArea(); // Clear learning area - force user to click Load
+                         // Use a timeout to ensure the populateDeckSelect has finished adding the option
+                         setTimeout(() => {
+                              deckSelect.value = importedDeck.name;
+                             // Don't automatically load, let the user click Load
+                             resetLearningArea(); // Ensure current view is cleared
+                         }, 50);
+
 
                     } else {
                         alert("Invalid flashcard deck file format. File must be a JSON object with 'name' (string) and 'cards' (array) properties.");
@@ -1095,8 +1431,8 @@
 
         // Handle export current deck button click
         exportCurrentDeckBtn.addEventListener('click', () => {
-            if (!currentDeck) {
-                alert("Please load a deck first before exporting.");
+            if (!currentDeck || currentDeck.name === ALL_FAVORITES_KEY) {
+                alert("Please load a regular deck first before exporting. The 'All Favorite Cards' view cannot be exported as a single deck file.");
                 return;
             }
 
@@ -1109,9 +1445,16 @@
                  return;
              }
 
-             // Clean up the deck object slightly for export - remove shuffledIndices as it's internal state
+             // Clean up the deck object for export - remove temporary internal state like shuffledIndices or display name
              const cleanedDeck = JSON.parse(JSON.stringify(deckToExport)); // Deep copy
              delete cleanedDeck.shuffledIndices;
+             delete cleanedDeck.displayName; // Should not be on regular decks anyway, but safety
+
+             // Ensure cards don't have temporary source info (shouldn't happen on regular decks, but safety)
+             cleanedDeck.cards.forEach(card => {
+                 delete card.sourceDeckName;
+                 delete card.sourceCardFront;
+             });
 
 
             const dataStr = JSON.stringify(cleanedDeck, null, 2); // Pretty print JSON
@@ -1134,7 +1477,7 @@
         // --- Delete Deck ---
         deleteDeckBtn.addEventListener('click', () => {
              const selectedDeckName = deckSelect.value;
-            if (selectedDeckName) {
+            if (selectedDeckName && selectedDeckName !== ALL_FAVORITES_KEY) {
                 const decks = getAllDecksFromStorage();
                 const deckToDelete = decks[selectedDeckName];
                 const folderDisplay = deckToDelete && deckToDelete.folder ? ` in folder "${deckToDelete.folder}"` : "";
@@ -1144,14 +1487,17 @@
                     saveAllDecksToStorage(decks);
 
                     if (currentDeck && currentDeck.name === selectedDeckName) {
-                         resetLearningArea();
+                         resetLearningArea(); // Reset if the deleted deck was loaded
                     }
 
                     alert(`Deck "${selectedDeckName}" deleted.`);
-                    populateFolderSelect();
+                    populateFolderSelect(); // Refresh dropdowns
                     populateDeckSelect();
                 }
-            } else {
+            } else if (selectedDeckName === ALL_FAVORITES_KEY) {
+                alert("You cannot delete the 'All Favorite Cards' view. This view shows cards marked as favorite across all your decks.");
+            }
+             else {
                  alert("Please select a deck to delete.");
             }
         });
@@ -1170,20 +1516,23 @@
 
              if (decksInFolder.length === 0) {
                   if (confirm(`Folder "${selectedFolder}" appears empty. Do you want to delete it anyway?`)) {
-                       alert(`Folder "${selectedFolder}" deleted.`);
+                       // To delete an empty folder visually, we just need to repopulate the select boxes.
+                       // The data structure implicitly doesn't store empty folders.
+                       alert(`Folder "${selectedFolder}" removed from list.`);
                        populateFolderSelect(); // Repopulating removes the empty folder option
-                       populateDeckSelect();
+                       populateDeckSelect(); // Ensure deck select is also refreshed
                   }
                   return;
              }
 
 
-             const confirmMessage = `Are you sure you want to delete the folder "${selectedFolder}"?\n\nThis will also delete ${decksInFolder.length} deck(s) within this folder:\n- ${decksInFolder.map(d => d.name).join('\n- ')}\n\nThis action cannot be undone.`;
+             const confirmMessage = `Are you sure you want to delete the folder "${selectedFolder}"?\n\nThis will also delete ${decksInFolder.length} deck(s) within this folder:\n- ${decksInFolder.map(d => d.name).join('\n- ')}\n\nFavorite status and progress for cards in these decks will also be lost.\n\nThis action cannot be undone.`;
 
              if (confirm(confirmMessage)) {
                   const decksAfterDeletion = {};
                   for (const deckName in allDecks) {
                        const deck = allDecks[deckName];
+                       // Keep decks that are NOT in the selected folder
                        if ((deck.folder || '').trim() !== selectedFolder.trim()) {
                            decksAfterDeletion[deckName] = deck;
                        }
@@ -1192,12 +1541,19 @@
                   saveAllDecksToStorage(decksAfterDeletion);
 
                   // Check if the currently loaded deck was in the deleted folder
-                  if (currentDeck && (currentDeck.folder || '').trim() === selectedFolder.trim()) {
-                       resetLearningArea();
-                  }
+                  // Need to check if currentDeck exists and if its name matches any of the deleted decks
+                   if (currentDeck && currentDeck.name !== ALL_FAVORITES_KEY) {
+                       const wasCurrentDeckDeleted = decksInFolder.some(deck => deck.name === currentDeck.name);
+                       if (wasCurrentDeckDeleted) {
+                           resetLearningArea();
+                       }
+                   }
+                   // If in favorites view, resetting is handled implicitly by populateDeckSelect
+                   // and the next time favorites are loaded, the deleted cards won't be included.
+
 
                   alert(`Folder "${selectedFolder}" and its ${decksInFolder.length} deck(s) deleted.`);
-                  populateFolderSelect();
+                  populateFolderSelect(); // Refresh dropdowns
                   populateDeckSelect();
              }
         });
@@ -1211,6 +1567,17 @@
 
              resetLearningArea(); // Ensure learning UI is hidden initially
         });
+
+        // Add event listener to deckSelect to update delete/export button state when selection changes
+        deckSelect.addEventListener('change', () => {
+             const selectedValue = deckSelect.value;
+             deleteDeckBtn.disabled = (selectedValue === "" || selectedValue === ALL_FAVORITES_KEY);
+             // Export button should technically be disabled here too, but it's better
+             // to keep it enabled only when a *loaded* deck is non-favorites.
+             // We disable it in loadDeck and resetLearningArea.
+             // exportCurrentDeckBtn.disabled = (selectedValue === "" || selectedValue === ALL_FAVORITES_KEY);
+        });
+
 
     </script>
 </body>

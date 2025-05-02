@@ -15,6 +15,10 @@
             background-color: #f4f4f4; /* Light background default */
             color: #333; /* Dark text default */
             transition: background-color 0.3s ease, color 0.3s ease; /* Smooth transition */
+            min-height: 100vh; /* Ensure full viewport height */
+            display: flex; /* Center content vertically */
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
         }
 
         h2 {
@@ -32,20 +36,59 @@
             transition: color 0.3s ease;
         }
 
+        /* --- Main Menu Styles --- */
+        .main-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            text-align: center;
+            padding: 40px 20px;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto; /* Center the menu horizontally */
+        }
+        
+        .menu-button {
+            padding: 30px 20px;
+            font-size: 1.5em;
+            border: none;
+            border-radius: 10px;
+            background-color: #000000; /* Changed to black */
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .menu-button:hover {
+            background-color: #333333; /* Darker shade for hover */
+        }
+        
+        /* Dark mode for main menu */
+        body.dark-mode .menu-button {
+            background-color: #000000; /* Black in dark mode too */
+        }
+        
+        body.dark-mode .menu-button:hover {
+            background-color: #333333; /* Darker shade for hover in dark mode */
+        }
+
         .container {
-            display: flex; /* Keep flex for side-by-side sections */
+            display: flex;
+            flex-direction: column; /* Stack creation/learning sections vertically */
             gap: 20px;
-            flex-wrap: wrap; /* Allow wrapping on smaller screens */
              /* Centralize the container */
             max-width: 1200px; /* Maximum width for the content */
             margin: 20px auto; /* 20px top/bottom margin, auto left/right for centering */
             padding: 0 10px; /* Add some padding inside the container, just in case */
              box-sizing: border-box; /* Include padding in max-width */
+            width: 100%; /* Take full width up to max-width */
         }
 
+        /* Hide sections by default */
         .creation-section, .learning-section {
-            flex: 1; /* Share width equally */
-            min-width: 300px; /* Minimum width before wrapping */
+            display: none; /* Hidden by default */
+            width: 100%; /* Take full width in column layout */
+            /* min-width: 300px; */ /* Not strictly needed now that width is 100% in column */
             border: 1px solid #ccc; /* Light border */
             padding: 20px;
             border-radius: 8px;
@@ -54,6 +97,33 @@
             transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 
              /* No display: flex or flex-direction here */
+        }
+
+        /* Back to menu button */
+        .back-to-menu {
+            margin-top: 20px;
+            width: 100%;
+            padding: 10px 15px;
+            background-color: #6c757d; /* Gray */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s ease;
+        }
+        
+        .back-to-menu:hover {
+            background-color: #5a6268;
+        }
+        
+        /* Dark mode for back button */
+        body.dark-mode .back-to-menu {
+            background-color: #5a6268;
+        }
+        
+        body.dark-mode .back-to-menu:hover {
+            background-color: #495057;
         }
 
         textarea, input[type="text"], select {
@@ -115,6 +185,7 @@
              flex-direction: column; /* Stack inner contents */
              align-items: center;
              justify-content: flex-start; /* Align to start now that it grows */
+             width: 100%; /* Make learning area take full width of parent section */
         }
 
 
@@ -175,8 +246,8 @@
             border: 1px solid #ddd; /* Light border */
             padding: 20px; /* Adjusted padding to accommodate image/text */
             min-height: 150px;
-            width: 90%;
-            max-width: 500px;
+            width: 100%; /* Make card take full width of #learningArea */
+            /* max-width: 500px; */ /* REMOVED to allow card to expand */
              display: flex; /* Use flexbox for vertical stacking of image/text */
              flex-direction: column;
              align-items: center;
@@ -251,6 +322,14 @@
             margin-top: 15px; /* Standard margin top */
             text-align: center;
             width: 100%;
+        }
+
+        /* Style the controls container to arrange buttons horizontally */
+        .controls {
+            display: flex; /* Use flexbox to arrange buttons horizontally */
+            gap: 10px;     /* Add spacing between buttons */
+            flex-wrap: wrap; /* Allow wrapping if screen is too narrow */
+            justify-content: center; /* Center the buttons */
         }
 
          /* Style for the main deck selection checkboxes section */
@@ -358,9 +437,21 @@
             }
 
 
-        .controls button, .progress-controls button, .image-input-learning-container button,
+        /* Progress controls and other buttons remain stacked vertically */
+        .progress-controls button, .image-input-learning-container button,
         .deck-selection-controls button, .favorite-filter-controls button { /* Added both section buttons */
-            margin: 5px;
+            margin: 5px 0; /* Consistent vertical spacing */
+            display: block; /* Stack vertically */
+            width: 100%;
+        }
+        
+        /* Controls buttons are arranged horizontally */
+        .controls button {
+            margin: 0; /* Remove default margins */
+            flex: 1 1 auto; /* Allow buttons to grow/shrink as needed */
+            display: inline-block; /* Keep buttons inline */
+            min-width: auto; /* Allow natural width */
+            max-width: fit-content; /* Prevent excessive width */
         }
 
          /* Specific styles for basic progress buttons (Mark Known/Needs Review) */
@@ -869,7 +960,7 @@
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .container {
-                flex-direction: column; /* Stack creation/learning sections vertically */
+                /* flex-direction: column; */ /* Removed - now global */
                 gap: 10px; /* Reduce gap on small screens */
                 margin: 10px auto; /* Adjust margin on small screens */
                 padding: 0 5px; /* Reduce padding inside container */
@@ -877,11 +968,11 @@
             }
             .creation-section, .learning-section {
                 min-width: auto;
-                width: 100%; /* Ensure they take full width */
+                /* width: 100%; */ /* Removed - now global */
                 padding: 15px; /* Reduce padding */
             }
              /* Adjust button/input stacking for small screens */
-             .controls button, .progress-controls button, .file-controls button, .file-controls label,
+             .progress-controls button, .file-controls button, .file-controls label,
              .folder-controls select, .folder-controls input[type="text"],
              .folder-controls button, /* Include folder button */
              textarea, input[type="text"],
@@ -891,6 +982,17 @@
                  width: 100%;
                  margin: 5px 0; /* Stack vertically */
                  box-sizing: border-box;
+             }
+             
+             /* Keep controls buttons horizontal but adjust for small screens */
+             .controls {
+                 gap: 5px; /* Reduce gap on small screens */
+             }
+             
+             .controls button {
+                 flex: 1 1 auto; /* Allow more flexible sizing on small screens */
+                 font-size: 0.9em; /* Slightly smaller font on small screens */
+                 padding: 8px 10px; /* Slightly smaller padding */
              }
               /* Override specific margins if necessary */
               /*
@@ -1018,8 +1120,15 @@
 <body class="dark-mode"> <!-- Starting in dark mode -->
 
     <div class="container">
+        <!-- Main Menu -->
+        <div class="main-menu" id="mainMenu">
+            <h2>Flashcard App</h2>
+            <button class="menu-button" onclick="showCreation()">Create Flashcards</button>
+            <button class="menu-button" onclick="showLearning()">Start Learning Session</button>
+            <button class="menu-button" id="toggleDarkModeBtn">Toggle Dark Mode</button>
+        </div>
 
-        <section class="creation-section">
+        <section class="creation-section" id="creationSection">
             <h2>Create/Update Deck</h2>
 
             <!-- Option to select an existing deck to add to -->
@@ -1068,6 +1177,8 @@
 
             <button id="parseAndSaveBtn" type="button">Process Input</button>
 
+            <button class="back-to-menu" onclick="goBack()">Back to Menu</button>
+
             <p>Manage Files (Single Deck):</p>
 
              <input type="file" id="importDeckInput" accept=".json">
@@ -1077,7 +1188,7 @@
 
         </section>
 
-        <section class="learning-section">
+        <section class="learning-section" id="learningSection">
             <h2>Learn Decks</h2>
             <!-- Main Deck Selection Checkboxes (Replaced Select) -->
             <div class="deck-selection-controls">
@@ -1118,6 +1229,7 @@
 
                 <div class="controls">
                     <button id="showAnswerBtn" type="button">Show Answer</button>
+                    <button id="markKnownBtn" type="button" disabled>Mark Known</button> <!-- Moved here from progress-controls -->
                      <!-- Navigation buttons are standard in this mode -->
                      <button id="previousCardBtn" type="button">Previous Card</button>
                      <button id="nextCardBtn" type="button">Next Card</button>
@@ -1133,7 +1245,6 @@
 
                 <div class="progress-controls">
                      <!-- Basic progress tracking buttons -->
-                     <button id="markKnownBtn" type="button" disabled>Mark Known</button> <!-- Disabled by default -->
                      <button id="markNeedsReviewBtn" type="button" disabled>Mark Needs Review</button> <!-- Disabled by default -->
                      <!-- New button to reset status to New -->
                      <button id="resetStatusBtn" class="danger-button" type="button" disabled>Reset All to New</button> <!-- Disabled by default -->
@@ -1168,6 +1279,8 @@
                  <!-- --- End Image Input Controls for Learning Section --- -->
 
             </div>
+            
+            <button class="back-to-menu" onclick="goBack()">Back to Menu</button>
         </section>
     </div>
 
@@ -1181,6 +1294,26 @@
 
 
     <script>
+        // --- UI Control Functions ---
+        function showCreation() {
+            document.getElementById('mainMenu').style.display = 'none';
+            document.getElementById('creationSection').style.display = 'block';
+            document.getElementById('learningSection').style.display = 'none';
+        }
+        
+        function showLearning() {
+            document.getElementById('mainMenu').style.display = 'none';
+            document.getElementById('creationSection').style.display = 'none';
+            document.getElementById('learningSection').style.display = 'block';
+        }
+        
+        function goBack() {
+            document.getElementById('mainMenu').style.display = 'flex';
+            document.getElementById('creationSection').style.display = 'none';
+            document.getElementById('learningSection').style.display = 'none';
+            resetLearningArea(); // Reset learning area when going back to menu
+        }
+        
         // --- JavaScript Logic ---
 
         // Get references to HTML elements (Creation Section)
@@ -2255,10 +2388,12 @@
               learningArea.style.display = 'none';
               // Clear card content elements
               cardFrontImageContainer.innerHTML = "";
-              cardFrontTextContent.innerHTML = "";
+              cardFrontTextContent.innerHTML = "No cards available in this deck/view.";
               cardBackImageContainer.innerHTML = "";
               cardBackTextContent.innerHTML = "";
-              cardBack.classList.add('hidden'); // Ensure back is hidden
+
+              cardBack.classList.add('hidden'); // Hide back
+              cardFront.classList.remove('hidden'); // Ensure front is visible
                isAnswerShowing = false; // Reset state
 
               // Hide and clear learning section image inputs
@@ -2708,7 +2843,7 @@
 
 
                  exportCurrentDeckBtn.disabled = true; // Export is disabled when no deck is loaded
-                 // deleteDeckBtn state depends on selected checkboxes, not loaded deck
+                 // deleteDeckBtn state depends on selected checkboxes, not loaded deck state
 
                  return;
              }
@@ -2905,7 +3040,7 @@
                  // Disable undo/reset while actively highlighting
                  undoHighlightBtn.disabled = true;
                  resetHighlightBtn.disabled = true;
-             } else { // Highlighter is off or in a temporary view
+            } else { // Highlighter is off or in a temporary view
                   highlighterBtn.classList.remove('active');
                   highlighterBtn.textContent = 'Highlighter';
                   // Disable text selection when inactive on BOTH faces (current and other)
@@ -2917,7 +3052,7 @@
                   cardBackTextContent.style.cursor = 'default';
                  // Re-enable undo/reset buttons based on state *only if not in temporary view*
                  updateHighlightButtons(isAnswerShowing); // This helper already checks for temporary views
-             }
+            }
 
 
         }
@@ -3933,70 +4068,115 @@
         // Function to handle text selection and highlighting via mouseup on card faces
         function handleCardSelection(event) {
             // This listener is on the text-content divs now
-             console.log("Mouseup on card text content.");
+            console.log("Mouseup on card text content.");
             // Only process when highlighter is active AND not in a temporary view
             if (!isHighlighterActive || !currentDeck || currentDeck.name === ALL_FAVORITES_KEY || currentDeck.name === MERGED_DECKS_KEY) {
-                 console.log("Highlighter is not active or in a temporary view. Ignoring selection.");
-                 return;
+                console.log("Highlighter is not active or in a temporary view. Ignoring selection.");
+                return;
             }
 
             const selection = window.getSelection();
             const selectedText = selection.toString().trim();
             if (!selectedText) {
-                 console.log("No text selected or selection is just whitespace. Ignoring.");
-                 return; // No text selected
+                console.log("No text selected or selection is just whitespace. Ignoring.");
+                return; // No text selected
             }
-             console.log("Selected text:", selectedText);
+            console.log("Selected text:", selectedText);
 
             // Check if selection is within the text content element it was triggered on
             const textContentElement = event.currentTarget;
-             if (!textContentElement.classList.contains('card-text-content')) {
-                 console.warn("Mouseup target is not a text content element? Ignoring.", event.currentTarget);
-                 return; // Should not happen with the current listeners, but safety
-             }
+            if (!textContentElement.classList.contains('card-text-content')) {
+                console.warn("Mouseup target is not a text content element? Ignoring.", event.currentTarget);
+                return; // Should not happen with the current listeners, but safety
+            }
 
-            const range = selection.getRangeAt(0);
+            // --- History: Save current state before applying highlight ---
+            const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
+            const card = currentDeck.cards[actualCardIndex];
+            const isBackFace = textContentElement.parentElement.classList.contains('back'); // Check parent (.card-face)
+            const history = isBackFace ? card.backHighlightHistory : card.frontHighlightHistory;
+
+            // Store the current HTML state of the text content element
+            const currentHTML = textContentElement.innerHTML;
+
+            // Check if the current HTML is different from the last history state to avoid duplicates
+            if (history.length === 0 || history[history.length - 1] !== currentHTML) {
+                // Add the current HTML to history, limiting the size
+                history.push(currentHTML);
+                if (history.length > MAX_HIGHLIGHT_HISTORY) {
+                    history.shift(); // Remove the oldest state
+                }
+                console.log("Added current HTML to history. History size:", history.length);
+            } else {
+                console.log("Current HTML is same as last history state. Not adding.");
+            }
+            // --- End History ---
 
             try {
-                 // Ensure the selection is entirely within the current text content element
-                 if (!textContentElement.contains(range.startContainer) || !textContentElement.contains(range.endContainer)) {
-                      console.warn("Selection spans outside the current text content element. Ignoring.");
-                      alert('Cannot highlight text that spans across different elements within the card face.');
-                     selection.removeAllRanges();
-                     return;
-                 }
-                 console.log("Selection is within the target text content element.");
+                // Get the range from the selection
+                if (selection.rangeCount === 0) {
+                    console.warn("No range in selection.");
+                    return;
+                }
+                const range = selection.getRangeAt(0);
 
-                 // --- History: Save current state before applying highlight ---
-                 const actualCardIndex = currentDeck.shuffledIndices[currentCardIndex];
-                 const card = currentDeck.cards[actualCardIndex];
-                 const isBackFace = textContentElement.parentElement.classList.contains('back'); // Check parent (.card-face)
-                 const history = isBackFace ? card.backHighlightHistory : card.frontHighlightHistory;
-
-                 // Store the current HTML state of the text content element
-                 const currentHTML = textContentElement.innerHTML;
-
-                  // Check if the current HTML is different from the last history state to avoid duplicates
-                 if (history.length === 0 || history[history.length - 1] !== currentHTML) {
-                     // Add the current HTML to history, limiting the size
-                     history.push(currentHTML);
-                     if (history.length > MAX_HIGHLIGHT_HISTORY) {
-                         history.shift(); // Remove the oldest state
-                     }
-                     console.log("Added current HTML to history. History size:", history.length);
-                 } else {
-                      console.log("Current HTML is same as last history state. Not adding.");
-                 }
-                  // --- End History ---
-
+                // Ensure the selection is entirely within the current text content element
+                if (!textContentElement.contains(range.startContainer) || !textContentElement.contains(range.endContainer)) {
+                    console.warn("Selection spans outside the current text content element. Trying to normalize.");
+                    
+                    // Create a new range that's contained within the text content element
+                    const newRange = document.createRange();
+                    
+                    // If start is outside, set it to the beginning of the text content
+                    if (!textContentElement.contains(range.startContainer)) {
+                        newRange.setStart(textContentElement, 0);
+                    } else {
+                        newRange.setStart(range.startContainer, range.startOffset);
+                    }
+                    
+                    // If end is outside, set it to the end of the text content
+                    if (!textContentElement.contains(range.endContainer)) {
+                        newRange.setEnd(textContentElement, textContentElement.childNodes.length);
+                    } else {
+                        newRange.setEnd(range.endContainer, range.endOffset);
+                    }
+                    
+                    // Replace the selection with our normalized range
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                    
+                    // Update the range reference
+                    range = newRange;
+                    console.log("Selection normalized to fit within text content element.");
+                }
+                console.log("Selection is within the target text content element.");
 
                 // Create a highlight span element (using the dedicated user-highlight class)
                 const highlightSpan = document.createElement('span');
                 highlightSpan.className = 'user-highlight'; // Use the specific class for user highlights
+                highlightSpan.style.display = 'inline'; // Ensure inline display
 
-                // Apply the highlight - this is where surroundContents can fail on complex selections
-                range.surroundContents(highlightSpan);
-                console.log("Highlight span applied.");
+                try {
+                    // Try the standard approach first
+                    range.surroundContents(highlightSpan);
+                    console.log("Standard highlight span applied.");
+                } catch (surroundError) {
+                    console.warn("surroundContents failed, trying alternative approach:", surroundError);
+                    
+                    // Alternative approach for complex selections
+                    // Extract the text content
+                    const selectedText = range.toString();
+                    
+                    // Create a new span with the selected text
+                    highlightSpan.textContent = selectedText;
+                    
+                    // Delete the original content
+                    range.deleteContents();
+                    
+                    // Insert the highlighted span
+                    range.insertNode(highlightSpan);
+                    console.log("Alternative highlight approach applied.");
+                }
 
                 // Clear the selection after highlighting
                 selection.removeAllRanges();
@@ -4008,14 +4188,14 @@
 
             } catch (e) {
                 console.error('Error applying highlight:', e);
-                // This catch block is for when surroundContents fails due to complex DOM
-                alert('Could not apply highlight to this selection. Try selecting text within a single word or phrase, avoiding borders of existing highlights or complex formatting.');
-                 selection.removeAllRanges(); // Attempt to clear selection even on error
-                 console.log("Error caught and selection cleared.");
+                // This catch block is for when all highlighting approaches fail
+                alert('Could not apply highlight to this selection. Please try selecting a different text area.');
+                selection.removeAllRanges(); // Attempt to clear selection even on error
+                console.log("Error caught and selection cleared.");
             } finally {
-                 // Always update button states after a highlight attempt
-                 updateHighlightButtons(isAnswerShowing); // This helper already checks for temporary views
-                  console.log("Highlight button states updated.");
+                // Always update button states after a highlight attempt
+                updateHighlightButtons(isAnswerShowing); // This helper already checks for temporary views
+                console.log("Highlight button states updated.");
             }
         }
 
@@ -4051,6 +4231,7 @@
             // Save the persistent change to the *original* card in storage using the helper
             // The helper function updateCardInOriginalDeck copies the highlighted properties from 'card' to 'originalCard'
              const saved = updateCardInOriginalDeck(card);
+
 
              if (!saved) {
                   console.error("Failed to save highlight via updateCardInOriginalDeck.");
@@ -4620,7 +4801,7 @@
                       // Disallow changes in temporary views
                      if (currentDeck.name === ALL_FAVORITES_KEY || currentDeck.name === MERGED_DECKS_KEY) {
                          console.warn("Paste attempted to add image in a temporary view. Not allowed.");
-                         alert("Cannot add/update images in this view. Add/update images in the original deck.");
+                         alert("Cannot add/update images in this view. Add/update images from the original deck.");
                          handled = false; // Ensure handled is false
                          e.preventDefault(); // Prevent browser from pasting anything if in a temporary view
                          return; // Exit listener
@@ -4764,6 +4945,17 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM fully loaded.");
+            
+            // Initialize app state - show main menu by default
+            document.getElementById('mainMenu').style.display = 'flex';
+            document.getElementById('creationSection').style.display = 'none';
+            document.getElementById('learningSection').style.display = 'none';
+            
+            // Connect dark mode toggle to existing functionality
+            document.getElementById('toggleDarkModeBtn').addEventListener('click', function() {
+                document.body.classList.toggle('dark-mode');
+            });
+            
             populateFolderSelect();
             populateDeckSelect(); // This now populates main deck checkboxes and calls populateFavoriteSourceSelect
              populateAddDeckSelect(); // Populate the new dropdown

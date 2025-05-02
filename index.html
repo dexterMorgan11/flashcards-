@@ -33,9 +33,9 @@
         }
 
         .container {
-            display: flex;
-            flex-direction: column; /* Stack creation/learning sections vertically */
+            display: flex; /* Keep flex for side-by-side sections */
             gap: 20px;
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
              /* Centralize the container */
             max-width: 1200px; /* Maximum width for the content */
             margin: 20px auto; /* 20px top/bottom margin, auto left/right for centering */
@@ -44,8 +44,8 @@
         }
 
         .creation-section, .learning-section {
-            width: 100%; /* Take full width in column layout */
-            /* min-width: 300px; */ /* Not strictly needed now that width is 100% in column */
+            flex: 1; /* Share width equally */
+            min-width: 300px; /* Minimum width before wrapping */
             border: 1px solid #ccc; /* Light border */
             padding: 20px;
             border-radius: 8px;
@@ -115,7 +115,6 @@
              flex-direction: column; /* Stack inner contents */
              align-items: center;
              justify-content: flex-start; /* Align to start now that it grows */
-             width: 100%; /* Make learning area take full width of parent section */
         }
 
 
@@ -176,8 +175,8 @@
             border: 1px solid #ddd; /* Light border */
             padding: 20px; /* Adjusted padding to accommodate image/text */
             min-height: 150px;
-            width: 100%; /* Make card take full width of #learningArea */
-            /* max-width: 500px; */ /* REMOVED to allow card to expand */
+            width: 90%;
+            max-width: 500px;
              display: flex; /* Use flexbox for vertical stacking of image/text */
              flex-direction: column;
              align-items: center;
@@ -870,7 +869,7 @@
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .container {
-                /* flex-direction: column; */ /* Removed - now global */
+                flex-direction: column; /* Stack creation/learning sections vertically */
                 gap: 10px; /* Reduce gap on small screens */
                 margin: 10px auto; /* Adjust margin on small screens */
                 padding: 0 5px; /* Reduce padding inside container */
@@ -878,7 +877,7 @@
             }
             .creation-section, .learning-section {
                 min-width: auto;
-                /* width: 100%; */ /* Removed - now global */
+                width: 100%; /* Ensure they take full width */
                 padding: 15px; /* Reduce padding */
             }
              /* Adjust button/input stacking for small screens */
@@ -2256,12 +2255,10 @@
               learningArea.style.display = 'none';
               // Clear card content elements
               cardFrontImageContainer.innerHTML = "";
-              cardFrontTextContent.innerHTML = "No cards available in this deck/view.";
+              cardFrontTextContent.innerHTML = "";
               cardBackImageContainer.innerHTML = "";
               cardBackTextContent.innerHTML = "";
-
-              cardBack.classList.add('hidden'); // Hide back
-              cardFront.classList.remove('hidden'); // Ensure front is visible
+              cardBack.classList.add('hidden'); // Ensure back is hidden
                isAnswerShowing = false; // Reset state
 
               // Hide and clear learning section image inputs
@@ -2711,7 +2708,7 @@
 
 
                  exportCurrentDeckBtn.disabled = true; // Export is disabled when no deck is loaded
-                 // deleteDeckBtn state depends on selected checkboxes, not loaded deck state
+                 // deleteDeckBtn state depends on selected checkboxes, not loaded deck
 
                  return;
              }
@@ -2908,7 +2905,7 @@
                  // Disable undo/reset while actively highlighting
                  undoHighlightBtn.disabled = true;
                  resetHighlightBtn.disabled = true;
-            } else { // Highlighter is off or in a temporary view
+             } else { // Highlighter is off or in a temporary view
                   highlighterBtn.classList.remove('active');
                   highlighterBtn.textContent = 'Highlighter';
                   // Disable text selection when inactive on BOTH faces (current and other)
@@ -2920,7 +2917,7 @@
                   cardBackTextContent.style.cursor = 'default';
                  // Re-enable undo/reset buttons based on state *only if not in temporary view*
                  updateHighlightButtons(isAnswerShowing); // This helper already checks for temporary views
-            }
+             }
 
 
         }
@@ -4055,7 +4052,6 @@
             // The helper function updateCardInOriginalDeck copies the highlighted properties from 'card' to 'originalCard'
              const saved = updateCardInOriginalDeck(card);
 
-
              if (!saved) {
                   console.error("Failed to save highlight via updateCardInOriginalDeck.");
                   alert("Error saving highlight changes.");
@@ -4624,7 +4620,7 @@
                       // Disallow changes in temporary views
                      if (currentDeck.name === ALL_FAVORITES_KEY || currentDeck.name === MERGED_DECKS_KEY) {
                          console.warn("Paste attempted to add image in a temporary view. Not allowed.");
-                         alert("Cannot add/update images in this view. Add/update images from the original deck.");
+                         alert("Cannot add/update images in this view. Add/update images in the original deck.");
                          handled = false; // Ensure handled is false
                          e.preventDefault(); // Prevent browser from pasting anything if in a temporary view
                          return; // Exit listener

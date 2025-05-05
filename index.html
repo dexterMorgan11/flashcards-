@@ -483,6 +483,17 @@
             background-color: #c0392b;
          }
 
+         /* Style for the Delete Card button */
+         #deleteCardBtn {
+             background-color: #dc3545; /* Red/Danger */
+             margin-left: 5px; /* Space it from other buttons */
+             display: inline-block;
+         }
+         #deleteCardBtn:hover {
+             background-color: #c82333; /* Darker red on hover */
+         }
+
+
          /* Styles for new highlight action buttons */
          #undoHighlightBtn {
              background-color: #6c757d; /* Gray */
@@ -665,6 +676,15 @@
          body.dark-mode #toggleFavoriteBtn.is-favorite:hover {
             background-color: #c0392b;
          }
+
+          /* Dark mode delete card button */
+         body.dark-mode #deleteCardBtn {
+              background-color: #c82333; /* Darker Red */
+         }
+         body.dark-mode #deleteCardBtn:hover {
+              background-color: #a71d2a; /* Even Darker Red */
+         }
+
 
          /* Dark mode styles for new highlight action buttons */
          body.dark-mode #undoHighlightBtn {
@@ -1052,11 +1072,18 @@
                  margin-bottom: 5px;
                  margin-left: 0 !important; /* Ensure left margin is also removed */
              }
+             /* Adjust delete card button margin */
+              #deleteCardBtn {
+                  margin-top: 5px;
+                  margin-bottom: 5px;
+                  margin-left: 0 !important;
+              }
              /* Adjust new highlight buttons for stacking */
              #undoHighlightBtn, #resetHighlightBtn {
                  margin-right: 0 !important;
                  margin-bottom: 5px;
              }
+
 
              /* Image controls stacking on small screens (Creation & Learning) */
               .creation-section .image-controls,
@@ -1241,6 +1268,8 @@ Front content::
                      <button id="nextCardBtn" type="button">Next Card</button>
                      <!-- New button to toggle favorite status -->
                      <button id="toggleFavoriteBtn" type="button" disabled>Mark as Favorite</button> <!-- Disabled by default -->
+                     <!-- New button to delete current card -->
+                     <button id="deleteCardBtn" type="button" disabled>Delete Card</button> <!-- Disabled by default -->
                      <!-- New highlighter button -->
                      <button id="highlighterBtn" type="button" disabled>Highlighter</button> <!-- Disabled by default -->
                      <!-- New buttons for undo/reset highlight -->
@@ -1369,6 +1398,7 @@ Front content::
         const markNeedsReviewBtn = document.getElementById('markNeedsReviewBtn'); // Now "Mark Needs Review" (individual)
         const resetStatusBtn = document.getElementById('resetStatusBtn'); // Reset Status button ("Reset All to New") (bulk)
         const toggleFavoriteBtn = document.getElementById('toggleFavoriteBtn'); // Mark/Unmark Favorite (still individual)
+         const deleteCardBtn = document.getElementById('deleteCardBtn'); // New Delete Card button
         const highlighterBtn = document.getElementById('highlighterBtn'); // Highlighter button (still individual)
         const undoHighlightBtn = document.getElementById('undoHighlightBtn'); // Undo button (still individual)
         const resetHighlightBtn = document.getElementById('resetHighlightBtn'); // Reset button (still individual)
@@ -1442,7 +1472,7 @@ Front content::
                       // Ensure card properties exist and are of the correct type
                       deck.cards = deck.cards.filter(card => { // Filter out any invalid card objects
                           if (!card || typeof card.front !== 'string' || typeof card.back !== 'string') {
-                                console.warn(`Card in deck "${deckName}" has invalid structure. Skipping card.`);
+                                console.warn(`Card "${card.front}" in deck "${deckName}" has invalid structure. Skipping card.`);
                                 return false; // Remove invalid card
                           }
                           // Normalize and add missing properties to valid cards
@@ -1467,7 +1497,7 @@ Front content::
                                 console.warn(`Card "${card.front}" in deck "${deckName}" has invalid frontImage data. Resetting to undefined.`);
                                 card.frontImage = undefined;
                            }
-                           if (typeof card.backImage !== 'string' || (card.backImage && !card.backImage.startsWith('data:'))) {
+                           if (typeof card.backImage !== 'string' || (card.backImage && card.backImage !== null && !card.backImage.startsWith('data:'))) { // Added check for null
                                 console.warn(`Card "${card.front}" in deck "${deckName}" has invalid backImage data. Resetting to undefined.`);
                                 card.backImage = undefined;
                            }
@@ -1571,7 +1601,7 @@ Front content::
              console.log("loadSingleDeck function called for:", deckName);
              // Ensure we don't load special keys with this function
              if (deckName === ALL_FAVORITES_KEY || deckName === MERGED_DECKS_KEY || deckName === "") {
-                  console.error("loadSingleDeck called with a special key or empty name. Use loadFilteredFavorites or the main load button.");
+                  console.error("loadSingleDeck called with a special key or empty name. Use loadFilteredFavorites or loadMergedDecks.");
                   resetLearningArea();
                  return;
              }
@@ -1641,6 +1671,7 @@ Front content::
             markNeedsReviewBtn.disabled = false; // Individual status enabled
             resetStatusBtn.disabled = false; // Bulk status enabled for single regular deck
             toggleFavoriteBtn.disabled = false; // Favorite enabled
+             deleteCardBtn.disabled = false; // Delete card enabled for single regular deck
             highlighterBtn.disabled = false; // Highlighter enabled
              // Undo/Reset states updated by displayCurrentCard
             exportCurrentDeckBtn.disabled = false; // Export enabled
@@ -1815,11 +1846,12 @@ Front content::
             showAnswerBtn.disabled = false;
             nextCardBtn.disabled = false;
             previousCardBtn.disabled = false;
-             markKnownBtn.disabled = false; // Individual status enabled
-             markNeedsReviewBtn.disabled = false; // Individual status enabled
+             markKnownBtn.disabled = false; // Individual status enabled (Yes, for favorites too)
+             markNeedsReviewBtn.disabled = false; // Individual status enabled (Yes, for favorites too)
              resetStatusBtn.disabled = true; // Bulk status disabled for favorites
             toggleFavoriteBtn.disabled = false; // Favorite enabled
-            highlighterBtn.disabled = false; // Highlighter enabled
+             deleteCardBtn.disabled = true; // Delete card disabled for favorites
+            highlighterBtn.disabled = false; // Highlighter enabled (Yes, for favorites too)
              // Undo/Reset states updated by displayCurrentCard
             exportCurrentDeckBtn.disabled = true; // Export disabled
             // deleteDeckBtn state depends on selected checkboxes, not loaded deck
@@ -1944,11 +1976,12 @@ Front content::
            showAnswerBtn.disabled = false;
            nextCardBtn.disabled = false;
            previousCardBtn.disabled = false;
-            markKnownBtn.disabled = false; // Individual status enabled
-            markNeedsReviewBtn.disabled = false; // Individual status enabled
+            markKnownBtn.disabled = false; // Individual status enabled (Yes, for merged too)
+            markNeedsReviewBtn.disabled = false; // Individual status enabled (Yes, for merged too)
             resetStatusBtn.disabled = true; // Bulk status disabled for merged view
            toggleFavoriteBtn.disabled = false; // Favorite enabled
-           highlighterBtn.disabled = false; // Highlighter enabled
+            deleteCardBtn.disabled = true; // Delete card disabled for merged view
+           highlighterBtn.disabled = false; // Highlighter enabled (Yes, for merged too)
             // Undo/Reset states updated by displayCurrentCard
            exportCurrentDeckBtn.disabled = true; // Export disabled
            // deleteDeckBtn state depends on selected checkboxes
@@ -2440,6 +2473,7 @@ Front content::
               resetStatusBtn.disabled = true;
               toggleFavoriteBtn.disabled = true;
               updateFavoriteButtonState(false); // Reset favorite button appearance
+              deleteCardBtn.disabled = true; // Disable delete card button
 
               highlighterBtn.disabled = true;
               highlighterBtn.classList.remove('active');
@@ -2849,6 +2883,7 @@ Front content::
                  updateFavoriteButtonState(false); // Reset favorite button appearance
                  updateHighlightButtons(false); // Disable highlight buttons initially
                   updateResetStatusButtonState(); // Disable Reset Status button state
+                  updateDeleteCardButtonState(); // Disable Delete Card button state
                  updateProgressDisplay(); // Clear progress display or show 0/0
 
                  // Disable ALL card interaction buttons
@@ -2859,6 +2894,7 @@ Front content::
                  markNeedsReviewBtn.disabled = true;
                  resetStatusBtn.disabled = true;
                  toggleFavoriteBtn.disabled = true;
+                 deleteCardBtn.disabled = true; // Ensure delete button is disabled
                  highlighterBtn.disabled = true;
                  highlighterBtn.classList.remove('active');
                  highlighterBtn.textContent = 'Highlighter';
@@ -2914,6 +2950,7 @@ Front content::
                  updateFavoriteButtonState(false);
                  updateHighlightButtons(false); // Disable highlight buttons
                   updateResetStatusButtonState(); // Disable Reset Status button state
+                  updateDeleteCardButtonState(); // Disable Delete Card button state
                  updateProgressDisplay();
                  // Keep controls disabled
                  showAnswerBtn.disabled = true;
@@ -2923,6 +2960,7 @@ Front content::
                  markNeedsReviewBtn.disabled = true;
                   resetStatusBtn.disabled = true; // Disable Reset Status button explicitly
                  toggleFavoriteBtn.disabled = true;
+                 deleteCardBtn.disabled = true; // Ensure delete button is disabled
                  highlighterBtn.disabled = true; // Disable highlighter button
                  highlighterBtn.classList.remove('active'); // Reset highlighter state
                  highlighterBtn.textContent = 'Highlighter'; // Reset text
@@ -3022,6 +3060,9 @@ Front content::
              // Update Reset Status button state based on current deck type (Favorites vs regular vs Merged)
              updateResetStatusButtonState(); // This helper determines state based on currentDeck.name
 
+             // Update Delete Card button state based on current deck type
+             updateDeleteCardButtonState(); // This helper determines state based on currentDeck.name
+
 
              // Enable ALL card interaction buttons initially
              showAnswerBtn.disabled = false;
@@ -3036,6 +3077,8 @@ Front content::
              markNeedsReviewBtn.disabled = (currentDeck.name === ALL_FAVORITES_KEY || currentDeck.name === MERGED_DECKS_KEY); // Individual status enabled ONLY for single regular deck view
 
              resetStatusBtn.disabled = (currentDeck.name === ALL_FAVORITES_KEY || currentDeck.name === MERGED_DECKS_KEY); // Bulk status disabled for temporary views
+
+             deleteCardBtn.disabled = (currentDeck.name === ALL_FAVORITES_KEY || currentDeck.name === MERGED_DECKS_KEY); // Delete card disabled for temporary views
 
              // Highlighter is disabled for temporary views because highlights are not saved persistently there
              highlighterBtn.disabled = (currentDeck.name === ALL_FAVORITES_KEY || currentDeck.name === MERGED_DECKS_KEY);
@@ -3131,6 +3174,14 @@ Front content::
              // It's enabled if the deck is loaded and it's not a temporary view.
              resetStatusBtn.disabled = (!currentDeck || currentDeck.name === ALL_FAVORITES_KEY || currentDeck.name === MERGED_DECKS_KEY);
               // console.log(`Reset Status button state updated. Disabled: ${resetStatusBtn.disabled}`);
+         }
+
+         // Helper to update the state of the Delete Card button
+         function updateDeleteCardButtonState() {
+              // The button should be enabled only if a single, regular deck is loaded
+              // Deletion is not allowed in temporary views (Favorites or Merged)
+              deleteCardBtn.disabled = (!currentDeck || currentDeck.name === ALL_FAVORITES_KEY || currentDeck.name === MERGED_DECKS_KEY);
+               // console.log(`Delete Card button state updated. Disabled: ${deleteCardBtn.disabled}`);
          }
 
 
@@ -3344,99 +3395,79 @@ Front content::
         // Helper function to find and update a card in its original deck in localStorage
         // updateFunc is an optional function that takes the original card object and modifies it
         // Returns true if successful, false otherwise.
-        function updateCardInOriginalDeck(currentCard, updateFunc = null) { // updateFunc is now optional
-             console.log("updateCardInOriginalDeck called.");
-             if (!currentCard) {
-                 console.error("updateCardInOriginalDeck called with null currentCard.");
-                 return false;
-             }
+        function findAndModifyCardInOriginalDeck(currentCardIdentifier, updateFunc) {
+             console.log("findAndModifyCardInOriginalDeck called for card:", currentCardIdentifier);
 
              let originalDeckName;
-             let cardIdentifier; // Use original front text as identifier
+             let cardLookupValue; // The value used to find the card in the original deck (usually front text)
 
-             // Check if source info exists (it should for temporary views)
-             if (currentCard.sourceDeckName && currentCard.sourceCardFront !== undefined) {
-                 originalDeckName = currentCard.sourceDeckName;
-                 cardIdentifier = currentCard.sourceCardFront; // Use original front text for lookup
-                 console.log(`updateCardInOriginalDeck (Temporary View): Looking for card "${cardIdentifier || '(Empty Front)'}" in deck "${originalDeckName}".`);
-             } else if (currentDeck.name && currentDeck.name !== ALL_FAVORITES_KEY && currentDeck.name !== MERGED_DECKS_KEY && currentCard.front !== undefined) {
+             // Check if source info exists on the currentCard object in memory (it will for temporary views)
+             if (currentCardIdentifier && currentCardIdentifier.sourceDeckName && currentCardIdentifier.sourceCardFront !== undefined) {
+                 originalDeckName = currentCardIdentifier.sourceDeckName;
+                 cardLookupValue = currentCardIdentifier.sourceCardFront; // Use original front text for lookup
+                 console.log(`Looking for card "${cardLookupValue || '(Empty Front)'}" in deck "${originalDeckName}" (from Temporary View).`);
+             } else if (currentDeck && currentDeck.name && currentDeck.name !== ALL_FAVORITES_KEY && currentDeck.name !== MERGED_DECKS_KEY && currentCardIdentifier && currentCardIdentifier.front !== undefined) {
                  // If it's a regular deck view, the original deck is the current deck
                  originalDeckName = currentDeck.name;
-                 cardIdentifier = currentCard.front; // Use current front text for lookup
-                  console.log(`updateCardInOriginalDeck (Regular View): Looking for card "${cardIdentifier || '(Empty Front)'}" in deck "${originalDeckName}".`);
+                 cardLookupValue = currentCardIdentifier.front; // Use current front text for lookup
+                  console.log(`Looking for card "${cardLookupValue || '(Empty Front)'}" in deck "${originalDeckName}" (from Regular View).`);
              } else {
                  console.error("Could not determine original deck or card info for update. Card or currentDeck state is unexpected.");
-                 console.log("currentCard:", currentCard);
+                 console.log("currentCardIdentifier:", currentCardIdentifier);
                  console.log("currentDeck:", currentDeck);
-                 return false;
+                 return { success: false, error: "Invalid card or deck state for update." };
              }
 
-
-            if (originalDeckName && cardIdentifier !== undefined) {
+            if (originalDeckName && cardLookupValue !== undefined) {
                 const decks = getAllDecksFromStorage();
                 const originalDeck = decks[originalDeckName];
 
                 if (originalDeck && Array.isArray(originalDeck.cards)) {
                      // Find the card in the original deck by its identifier (original front text)
-                    const originalCardIndex = originalDeck.cards.findIndex(c => c.front === cardIdentifier);
+                    const originalCardIndex = originalDeck.cards.findIndex(c => c.front === cardLookupValue);
 
                     if (originalCardIndex > -1) {
                         const originalCard = originalDeck.cards[originalCardIndex];
                          console.log("Original card found:", originalCard);
 
-                        // Apply the provided update function if one was given
+                        // Apply the provided update function
                          if (updateFunc && typeof updateFunc === 'function') {
                              console.log("Applying custom update function.");
-                            updateFunc(originalCard); // This modifies the originalCard object
+                            updateFunc(originalCard, originalDeck, originalCardIndex); // Pass card, deck, and index to updateFunc
                          } else {
-                              console.log("No custom update function provided, will copy properties.");
+                              console.warn("No valid update function provided to findAndModifyCardInOriginalDeck.");
+                               // If no update function, what should happen? Assume no modification and just return success?
+                               // Let's make the updateFunc mandatory for now, as this helper is for *modifying*.
+                               return { success: false, error: "No valid update function provided." };
                          }
 
-                         console.log("Original card after potential custom updateFunc:", originalCard);
-
-
-                         // Copy highlight/image/status/favorite changes from the in-memory currentCard object
-                         // (which might have been modified directly by highlight/image/favorite UI handlers)
-                         // back to the originalCard object found in the decks array *before* saving.
-                         // This ensures persistent changes from the learning UI are saved.
-                         // Note: For regular decks, `currentCard` *is* the object from `currentDeck.cards[actualCardIndex]`.
-                         // For temporary views, `currentCard` is a copy. This explicit copy makes the logic consistent.
-                         // Only copy if currentCard has these properties (should always be the case now, but safe check).
-                         if (currentCard.hasOwnProperty('status')) originalCard.status = currentCard.status;
-                         if (currentCard.hasOwnProperty('isFavorite')) originalCard.isFavorite = currentCard.isFavorite;
-                         if (currentCard.hasOwnProperty('frontHighlighted')) originalCard.frontHighlighted = currentCard.frontHighlighted;
-                         if (currentCard.hasOwnProperty('backHighlighted')) originalCard.backHighlighted = currentCard.backHighlighted;
-                         if (currentCard.hasOwnProperty('frontImage')) originalCard.frontImage = currentCard.frontImage;
-                         if (currentCard.hasOwnProperty('backImage')) originalCard.backImage = currentCard.backImage;
-                         // History is NOT copied.
-
-
-                         console.log("Final original card state before saving:", originalCard);
+                         console.log("Original card state after potential custom updateFunc:", originalCard);
 
                         // Save the modified original deck back to storage
                         saveDeck(originalDeck); // This calls the saveDeck that cleans history and temporary properties
                          console.log(`Original deck "${originalDeckName}" saved.`);
 
-                        return true; // Success
+                        return { success: true, originalDeck: originalDeck, originalCardIndex: originalCardIndex }; // Success
                     } else {
-                         console.error(`Could not find original card "${cardIdentifier || '(Empty Front)'}" in deck "${originalDeckName}" by front text for update.`);
+                         console.error(`Could not find original card "${cardLookupValue || '(Empty Front)'}" in deck "${originalDeckName}" by front text for update/deletion.`);
                          // This could happen if the front text was edited *in the creation section* after the card was added.
                          // Or if the original deck was deleted after the session started.
                          // Attempting to find by other means (e.g., unique ID if we implemented one) would be more robust.
                          // For now, this is a limitation.
+                         return { success: false, error: "Original card not found in deck." };
                     }
                 } else {
-                     console.error(`Could not find original deck "${originalDeckName}" in storage for update.`);
+                     console.error(`Could not find original deck "${originalDeckName}" in storage for update/deletion.`);
                      // Maybe the original deck was deleted?
+                    return { success: false, error: "Original deck not found in storage." };
                 }
             } else {
-                console.error("Missing information to find original card for update.");
+                console.error("Missing information to find original card for update/deletion.");
+                 return { success: false, error: "Missing card identifier or deck name." };
             }
-            return false; // Failure
         }
 
-
-        // Helper function to apply a status to all cards in the current deck and save
+         // Helper function to apply a status to all cards in the current deck and save
          function applyStatusToAllCards(status) {
              console.log(`Attempting to apply status "${status}" to all cards.`);
              if (!currentDeck || !currentDeck.cards || currentDeck.cards.length === 0) {
@@ -3546,13 +3577,13 @@ Front content::
              card.status = 'known';
 
              // Save the persistent change to localStorage using the helper
-             // The helper function automatically copies status from 'card' to 'originalCard'
-             const saved = updateCardInOriginalDeck(card);
+              const updateResult = findAndModifyCardInOriginalDeck(card, (originalCard) => {
+                   originalCard.status = card.status; // Copy status from in-memory card
+              });
 
-
-             if (!saved) {
-                  console.error("Failed to save 'known' status via updateCardInOriginalDeck.");
-                  alert("Error saving card status.");
+             if (!updateResult.success) {
+                  console.error("Failed to save 'known' status via findAndModifyCardInOriginalDeck:", updateResult.error);
+                  alert("Error saving card status: " + updateResult.error);
                   // Revert the change in memory if save failed? Complex, just log error for now.
                   // Card status in UI might be wrong now if save failed, but proceeding might break session.
                   // For simplicity, we'll proceed with UI change assuming save will usually work.
@@ -3565,6 +3596,23 @@ Front content::
                   // Remove the element at the currentCardIndex in the shuffledIndices array
                   currentDeck.shuffledIndices.splice(currentShuffledIndex, 1);
                    console.log(`shuffledIndices after removal: ${currentDeck.shuffledIndices.length} elements.`);
+
+                   // --- Remove the card object from the in-memory cards array ---
+                   // This is important to keep currentDeck.cards in sync with shuffledIndices for the session
+                   const cardToRemoveIndex = currentDeck.cards.findIndex(c =>
+                        // Find the card object using its identifier (source info for temporary, front for regular)
+                       (currentDeck.name === ALL_FAVORITES_KEY || currentDeck.name === MERGED_DECKS_KEY) ?
+                       (c.sourceDeckName === card.sourceDeckName && c.sourceCardFront === card.sourceCardFront) :
+                       c.front === card.front
+                   );
+
+                   if (cardToRemoveIndex > -1) {
+                        console.log(`Removing card object (Original Front: "${card.sourceCardFront || card.front}" from deck "${card.sourceDeckName || currentDeck.name}") at index ${cardToRemoveIndex} from currentDeck.cards array.`);
+                        currentDeck.cards.splice(cardToRemoveIndex, 1);
+                        console.log(`currentDeck.cards after removal: ${currentDeck.cards.length} elements.`);
+                   } else {
+                        console.error("Could not find card object in currentDeck.cards array to remove after marking known. This is inconsistent state.");
+                   }
 
 
                   // --- Advance to the next card ---
@@ -3622,12 +3670,13 @@ Front content::
              card.status = 'needsReview';
 
               // Save the persistent change to localStorage using the helper
-              // The helper function automatically copies status from 'card' to 'originalCard'
-             const saved = updateCardInOriginalDeck(card);
+              const updateResult = findAndModifyCardInOriginalDeck(card, (originalCard) => {
+                   originalCard.status = card.status; // Copy status from in-memory card
+              });
 
-             if (!saved) {
-                  console.error("Failed to save 'needsReview' status via updateCardInOriginalDeck.");
-                  alert("Error saving card status.");
+             if (!updateResult.success) {
+                  console.error("Failed to save 'needsReview' status via findAndModifyCardInOriginalDeck:", updateResult.error);
+                  alert("Error saving card status: " + updateResult.error);
                    // Revert the change in memory if save failed? Complex, just log error for now.
              } else {
                   console.log("Card status saved successfully.");
@@ -3646,6 +3695,124 @@ Front content::
         resetStatusBtn.addEventListener('click', () => {
              // This button performs the bulk reset action using the existing applyStatusToAllCards helper
              applyStatusToAllCards('new');
+        });
+
+        // New Delete Card button listener (Individual Card)
+        deleteCardBtn.addEventListener('click', () => {
+             console.log("Delete Card button clicked.");
+             // Only allow deletion if a single, regular deck is loaded
+             if (!currentDeck || currentDeck.name === ALL_FAVORITES_KEY || currentDeck.name === MERGED_DECKS_KEY || !currentDeck.cards || currentDeck.cards.length === 0 || !currentDeck.shuffledIndices || currentDeck.shuffledIndices.length === 0) {
+                  console.warn("Delete Card button clicked but no single regular deck is loaded or deck is empty. Ignoring.");
+                 alert("Please load a single regular deck first to delete cards.");
+                 return;
+             }
+
+             // Get the index in the shuffled array and the actual index in the cards array
+             const currentShuffledIndex = currentCardIndex;
+             const actualCardIndex = currentDeck.shuffledIndices[currentShuffledIndex];
+             const card = currentDeck.cards[actualCardIndex]; // Get the in-memory card object
+
+             console.log(`Attempting to delete card (Actual Index ${actualCardIndex}) with front: "${card.front}".`);
+
+             if (confirm(`Are you sure you want to permanently delete this card from deck "${currentDeck.name}"?\n\nFront: "${card.front.substring(0, 100)}..."\n\nThis action cannot be undone.`)) {
+                 console.log("User confirmed deletion.");
+
+                 // Delete the card from the original deck in localStorage using the helper
+                 const deleteResult = findAndModifyCardInOriginalDeck(card, (originalCard, originalDeck, originalCardIndex) => {
+                     // The update function for deletion just needs to splice the card out
+                      console.log(`Found original card at index ${originalCardIndex} in deck "${originalDeck.name}". Removing it.`);
+                      originalDeck.cards.splice(originalCardIndex, 1);
+                      console.log(`Original deck "${originalDeck.name}" now has ${originalDeck.cards.length} cards.`);
+                     // No return needed, saveDeck happens outside this function
+                 });
+
+
+                 if (!deleteResult.success) {
+                      console.error("Failed to delete card from original deck via findAndModifyCardInOriginalDeck:", deleteResult.error);
+                     alert("Error deleting card from storage: " + deleteResult.error);
+                     return; // Stop if deletion from storage failed
+                 }
+
+                 console.log("Card deleted from original deck in storage.");
+
+
+                  // --- Remove the card from the current session ---
+
+                  // Remove the index from the shuffledIndices array first
+                   console.log(`Removing shuffled index at current position ${currentShuffledIndex} from shuffledIndices.`);
+                  currentDeck.shuffledIndices.splice(currentShuffledIndex, 1);
+                  console.log(`shuffledIndices after removal: ${currentDeck.shuffledIndices.length} elements.`);
+
+                  // Then remove the actual card object from the currentDeck.cards array in memory
+                  // Since we know the actual index *before* splicing shuffledIndices, we can remove it from the in-memory cards array too.
+                   // Note: When deleting from a regular deck, the in-memory `card` is the same object instance as `currentDeck.cards[actualCardIndex]`.
+                   // The deleteResult gives us the index *within the original deck*. We need the index *within the currentDeck.cards* array.
+                   // This needs care. The safest way is to find the card object by reference or unique identifier in `currentDeck.cards`.
+                   // Let's use the actualCardIndex we had *before* any splicing happened in this function,
+                   // as it corresponds to the position in the *original* `currentDeck.cards` array (before we start modifying it).
+                   // But wait, shuffledIndices stores *indices into currentDeck.cards*. If we delete from currentDeck.cards, the indices need remapping?
+                   // NO, that's complicated. The `currentDeck.cards` array *in memory* should mirror the state of the *original deck* in localStorage (minus history).
+                   // When we delete from the original deck and save, the *simplest* way to sync `currentDeck` in memory is to reload it.
+                   // Let's try reloading the currentDeck after saving the deletion.
+
+                   console.log("Card deleted from original deck in storage. Reloading current deck in memory.");
+                   // Get the latest version of the deck from storage
+                   const decksAfterDeletion = getAllDecksFromStorage();
+                   const reloadedDeck = decksAfterDeletion[currentDeck.name];
+
+                   if (!reloadedDeck || reloadedDeck.cards.length === 0) {
+                       // If the deck is now empty or gone after deletion
+                        console.log("Deck is empty or gone after deletion. Resetting learning area.");
+                       alert(`Card deleted. Deck "${currentDeck.name}" is now empty or gone.`);
+                       resetLearningArea(); // Clear everything
+                       populateDeckSelect(); // Refresh deck list
+                       populateAddDeckSelect(); // Refresh add to deck list
+                       populateFavoriteSourceSelect(); // Refresh favorite sources
+                       return; // Stop here
+                   }
+
+                   // Re-set the currentDeck variable to the reloaded version
+                   currentDeck = reloadedDeck;
+                   console.log(`Current deck reloaded. Total cards: ${currentDeck.cards.length}.`);
+
+                    // Re-generate shuffled indices based on the *new* set of cards in the reloaded deck.
+                    // Preserve randomization setting.
+                   const initialIndices = Array.from({length: currentDeck.cards.length}, (_, i) => i);
+                   currentDeck.shuffledIndices = randomizeCheckbox.checked ? shuffleArray(initialIndices) : initialIndices;
+                   console.log(`Shuffled indices regenerated based on reloaded deck. New count: ${currentDeck.shuffledIndices.length}`);
+
+
+                   // Adjust currentCardIndex:
+                   // If the deleted card was the last one in the *previous* shuffled list, wrap to 0.
+                   // If the deleted card was *not* the last one, and we removed the index corresponding to it
+                   // from the old shuffledIndices, the subsequent indices shifted left.
+                   // When we regenerate the new shuffledIndices from the *smaller* cards array, the mapping is lost.
+                   // The simplest approach is to just reset currentCardIndex to 0. The user will start from the beginning
+                   // of the new list of cards.
+                    currentCardIndex = 0;
+                   console.log("Resetting currentCardIndex to 0 after deletion and reload.");
+
+
+                  // Update UI elements
+                  updateProgressDisplay(); // Recalculate progress based on new card count
+                  updateDeleteCardButtonState(); // Ensure button state is correct (might become disabled if deck is now empty)
+                  updateResetStatusButtonState(); // Ensure button state is correct
+
+                   // Display the first card from the new shuffled list
+                  displayCurrentCard(); // This also handles refreshing button states based on the new currentDeck/card
+
+                   alert("Card deleted successfully.");
+
+                   // Repopulate dropdowns/checkboxes to reflect changes (deck size changed)
+                   // Not strictly necessary just for card count change within an existing deck,
+                   // but safe to do after major deck modification.
+                   // populateDeckSelect(); // This also calls populateFavoriteSourceSelect
+                   // populateAddDeckSelect(); // Update creation section select
+
+
+             } else {
+                  console.log("Card deletion cancelled by user (confirmation prompt).");
+             }
         });
 
 
@@ -3742,8 +3909,8 @@ Front content::
 
                                // Initialize image properties if missing, or ensure they are strings/undefined
                                // Ensure data URLs are strings, otherwise set to undefined
-                               if (typeof card.frontImage !== 'string' || (card.frontImage && !card.frontImage.startsWith('data:'))) card.frontImage = undefined; // Added check for null/empty string
-                               if (typeof card.backImage !== 'string' || (card.backImage && !card.backImage.startsWith('data:'))) card.backImage = undefined; // Added check for null/empty string
+                               if (typeof card.frontImage !== 'string' || (card.frontImage && card.frontImage !== null && !card.frontImage.startsWith('data:'))) card.frontImage = undefined; // Added check for null/empty string
+                               if (typeof card.backImage !== 'string' || (card.backImage && card.backImage !== null && !card.backImage.startsWith('data:'))) card.backImage = undefined; // Added check for null/empty string
 
 
                               // --- IMPORTANT for Import: Reset history, don't import it ---
@@ -4225,7 +4392,7 @@ Front content::
                 console.log("Selection cleared.");
 
                 // Save the new highlighted content of the text element persistently
-                // The updateCardInOriginalDeck helper will handle copying the HTML from the in-memory card to the original
+                // The findAndModifyCardInOriginalDeck helper will handle copying the HTML from the in-memory card to the original
                 saveHighlightedContent(isBackFace, textContentElement.innerHTML); // Pass the actual HTML content
 
             } catch (e) {
@@ -4270,13 +4437,16 @@ Front content::
             }
 
             // Save the persistent change to the *original* card in storage using the helper
-            // The helper updateCardInOriginalDeck copies the highlighted properties from 'card' to 'originalCard'
-             const saved = updateCardInOriginalDeck(card);
+            // The helper findAndModifyCardInOriginalDeck copies the highlighted properties from 'card' to 'originalCard'
+             const saved = findAndModifyCardInOriginalDeck(card, (originalCard) => {
+                 originalCard.frontHighlighted = card.frontHighlighted; // Copy from in-memory card
+                 originalCard.backHighlighted = card.backHighlighted;   // Copy from in-memory card
+             });
 
 
-             if (!saved) {
-                  console.error("Failed to save highlight via updateCardInOriginalDeck.");
-                  alert("Error saving highlight changes.");
+             if (!saved.success) {
+                  console.error("Failed to save highlight via findAndModifyCardInOriginalDeck:", saved.error);
+                  alert("Error saving highlight changes: " + saved.error);
                    // Revert the highlight in the UI if save failed?
                    displayCurrentCard(); // Attempt to revert visual change by re-displaying
              } else {
@@ -4325,13 +4495,16 @@ Front content::
 
 
                  // Save the updated state persistently
-                 // The helper updateCardInOriginalDeck copies the highlighted properties from 'card' to 'originalCard'
-                 const saved = updateCardInOriginalDeck(card);
+                 // The helper findAndModifyCardInOriginalDeck copies the highlighted properties from 'card' to 'originalCard'
+                  const saved = findAndModifyCardInOriginalDeck(card, (originalCard) => {
+                     originalCard.frontHighlighted = card.frontHighlighted; // Copy from in-memory card
+                     originalCard.backHighlighted = card.backHighlighted;   // Copy from in-memory card
+                  });
 
 
-                 if (!saved) {
-                      console.error("Failed to save undo highlight via updateCardInOriginalDeck.");
-                      alert("Error saving undo changes.");
+                 if (!saved.success) {
+                      console.error("Failed to save undo highlight via findAndModifyCardInOriginalDeck:", saved.error);
+                      alert("Error saving undo changes: " + saved.error);
                       // Revert undo in UI? Complex, just log error.
                  } else {
                      console.log("Undo highlight saved persistently.");
@@ -4405,12 +4578,15 @@ Front content::
 
 
              // Save the updated state persistently
-             // The helper updateCardInOriginalDeck copies the highlighted properties from 'card' to 'originalCard'
-             const saved = updateCardInOriginalDeck(card);
+             // The helper findAndModifyCardInOriginalDeck copies the highlighted properties from 'card' to 'originalCard'
+              const saved = findAndModifyCardInOriginalDeck(card, (originalCard) => {
+                  originalCard.frontHighlighted = card.frontHighlighted; // Copy from in-memory card
+                  originalCard.backHighlighted = card.backHighlighted;   // Copy from in-memory card
+              });
 
-              if (!saved) {
-                   console.error("Failed to save reset highlight via updateCardInOriginalDeck.");
-                   alert("Error saving reset changes.");
+              if (!saved.success) {
+                   console.error("Failed to save reset highlight via findAndModifyCardInOriginalDeck:", saved.error);
+                   alert("Error saving reset changes: " + saved.error);
                     // Revert reset in UI?
                    displayCurrentCard(); // Attempt to revert visual change by re-displaying
               } else {
@@ -4471,12 +4647,21 @@ Front content::
                       // Clear any temporary loading indicator if shown by dragenter handler
                       previewContainer.innerHTML = '';
                       controlsElement.style.display = 'none';
+                      if (onImageLoadCallback) { // Call callback with null to indicate removal or failure
+                          onImageLoadCallback(null); // Pass null to indicate image removal/failure
+                          console.log("Dropped non-image file, calling onImageLoadCallback(null)");
+                      }
                  }
              } else {
                   console.log("No files dropped.");
                   // Clear any temporary loading indicator if shown by dragenter handler
                   previewContainer.innerHTML = '';
                   controlsElement.style.display = 'none';
+                   // No file means effectively removing/not adding an image
+                   if (onImageLoadCallback) {
+                        onImageLoadCallback(null);
+                        console.log("No files dropped, calling onImageLoadCallback(null)");
+                   }
              }
         }
 
@@ -4518,10 +4703,10 @@ Front content::
                       onImageLoadCallback(e.target.result); // Pass the data URL
                  } else {
                      console.warn("FileReader loaded image, but no onImageLoadCallback provided.");
+                      // If no callback, just display the image temporarily in the preview
+                     displayImage(e.target.result, previewContainer, controlsElement);
+                      console.log("Image displayed in preview (no callback).");
                  }
-                 // Then display the image in the preview using the Data URL
-                 displayImage(e.target.result, previewContainer, controlsElement);
-                  console.log("Image displayed in preview.");
              };
 
              reader.onerror = function() {
@@ -4620,6 +4805,10 @@ Front content::
              if (!imageFound) {
                  alert('No image found in clipboard.');
                  console.log("No image type found in clipboard items from button click.");
+                 // If no image was found, call the callback with null to ensure the preview is cleared/state reset
+                 // But only if it's not the initial state (i.e., if there *was* an image before this paste attempt)
+                 // Simpler: Always call it with null if no image is found, the callback handles its own logic
+                 onImageChangeCallback(null);
              }
         }
 
@@ -4658,7 +4847,8 @@ Front content::
                        alert("Cannot add/update images in this view. Add/update images in the original deck.");
                        preventDefaults(e); // Prevent browser default handling
                        // Re-display the current card to revert the temporary UI state (preview might have been cleared already by handleImageFile(null))
-                       displayCurrentCard();
+                       // This is handled by the onImageChangeCallback being called with null when drop fails due to not being an image or other issues.
+                       // The specific callbacks for learning section images already handle re-displaying the card.
                        return; // Stop the drop process
                    }
                    // If allowed, handle the drop
@@ -4768,13 +4958,33 @@ Front content::
                  if (closestCreationFront) {
                       previewContainer = creationFrontImagePreviewContainer;
                       controlsElement = creationFrontImageControls;
-                      onImageChangeCallback = (dataUrl) => { creationFrontImage = dataUrl; }; // Simple assignment for creation
+                      onImageChangeCallback = (dataUrl) => {
+                           console.log("Creation Front Image Paste Callback (Global Paste):", dataUrl ? "Image received" : "Image removed (null)");
+                           creationFrontImage = dataUrl; // Simple assignment for creation
+                           // No save needed until Process Input button is clicked
+                            if (dataUrl) { // Only display preview if data is received
+                                 displayImage(dataUrl, previewContainer, controlsElement);
+                            } else { // If dataUrl is null (removed/failed)
+                                previewContainer.innerHTML = '';
+                                controlsElement.style.display = 'none';
+                            }
+                      };
                       handled = true;
                       console.log("Paste target: Creation Front Image Drop Zone (via global paste)");
                  } else if (closestCreationBack) {
                       previewContainer = creationBackImagePreviewContainer;
                       controlsElement = creationBackImageControls;
-                      onImageChangeCallback = (dataUrl) => { creationBackImage = dataUrl; }; // Simple assignment for creation
+                      onImageChangeCallback = (dataUrl) => {
+                           console.log("Creation Back Image Paste Callback (Global Paste):", dataUrl ? "Image received" : "Image removed (null)");
+                           creationBackImage = dataUrl; // Simple assignment for creation
+                           // No save needed until Process Input button is clicked
+                           if (dataUrl) { // Only display preview if data is received
+                                displayImage(dataUrl, previewContainer, controlsElement);
+                           } else { // If dataUrl is null (removed/failed)
+                               previewContainer.innerHTML = '';
+                               controlsElement.style.display = 'none';
+                           }
+                      };
                       handled = true;
                       console.log("Paste target: Creation Back Image Drop Zone (via global paste)");
                  } else if (closestLearningFront) {
@@ -4809,17 +5019,20 @@ Front content::
                            }
 
                           // Save the change persistently using the helper
-                          // updateCardInOriginalDeck copies image properties from the in-memory card
-                          const saved = updateCardInOriginalDeck(card);
+                          // findAndModifyCardInOriginalDeck copies image properties from the in-memory card
+                           const saved = findAndModifyCardInOriginalDeck(card, (originalCard) => {
+                               originalCard.frontImage = card.frontImage; // Copy from in-memory card
+                           });
 
-                          if (saved) {
+
+                          if (saved.success) {
                                console.log("Learning front image saved successfully. Re-displaying card.");
                               // If save successful, re-render the main card face to show the image
                               displayCurrentCard(); // This will update the main card display
                               // UI preview is already updated by handleImageFile/Blob via displayImage()
                           } else {
-                              console.error("Failed to save learning front image after paste.");
-                              alert("Error saving image to deck after paste.");
+                              console.error("Failed to save learning front image after paste:", saved.error);
+                              alert("Error saving image to deck after paste: " + saved.error);
                                // Revert the change in memory and UI preview if save failed
                               card.frontImage = undefined; // Revert in-memory change
                               learningFrontImagePreviewContainer.innerHTML = ""; // Clear preview
@@ -4861,18 +5074,20 @@ Front content::
                                 card.backImage = dataUrl; // Update in-memory card object
                            }
 
-                          // Save the change persistently using the helper
-                          // updateCardInOriginalDeck copies image properties from the in-memory card
-                          const saved = updateCardInOriginalDeck(card);
+                          // Save the persistent change to localStorage using the helper
+                          // findAndModifyCardInOriginalDeck copies image properties from the in-memory card
+                           const saved = findAndModifyCardInOriginalDeck(card, (originalCard) => {
+                                originalCard.backImage = card.backImage; // Copy from in-memory card
+                           });
 
-                          if (saved) {
+                          if (saved.success) {
                                console.log("Learning back image saved successfully. Re-displaying card.");
                               // If save successful, re-render the main card face to show the image
                               displayCurrentCard(); // This will update the main card display
                                // UI preview is already updated by handleImageFile/Blob via displayImage()
                           } else {
-                              console.error("Failed to save learning back image after paste.");
-                              alert("Error saving image to deck after paste.");
+                              console.error("Failed to save learning back image after paste:", saved.error);
+                              alert("Error saving image to deck after paste: " + saved.error);
                                // Revert the change in memory and UI preview if save failed
                               card.backImage = undefined; // Revert in-memory change
                               learningBackImagePreviewContainer.innerHTML = ""; // Clear preview
@@ -5003,11 +5218,29 @@ Front content::
              resetLearningArea(); // Ensure learning UI is hidden initially
 
              // Set up image handling in the creation section
-             setupImageInput(creationFrontImageDropZone, creationFrontImagePreviewContainer, creationFrontImageControls, removeCreationFrontImageBtn, creationFrontImagePasteBtn, (dataUrl) => { creationFrontImage = dataUrl; });
-             setupImageInput(creationBackImageDropZone, creationBackImagePreviewContainer, creationBackImageControls, removeCreationBackImageBtn, creationBackImagePasteBtn, (dataUrl) => { creationBackImage = dataUrl; });
+             setupImageInput(creationFrontImageDropZone, creationFrontImagePreviewContainer, creationFrontImageControls, removeCreationFrontImageBtn, creationFrontImagePasteBtn, (dataUrl) => {
+                  console.log("Creation Front Image Input Callback:", dataUrl ? "Image received" : "Image removed (null)");
+                  creationFrontImage = dataUrl;
+                  if (dataUrl) { // Only display preview if data is received
+                     displayImage(dataUrl, creationFrontImagePreviewContainer, creationFrontImageControls);
+                  } else { // If dataUrl is null (removed/failed)
+                     creationFrontImagePreviewContainer.innerHTML = '';
+                     creationFrontImageControls.style.display = 'none';
+                  }
+             });
+             setupImageInput(creationBackImageDropZone, creationBackImagePreviewContainer, creationBackImageControls, removeCreationBackImageBtn, creationBackImagePasteBtn, (dataUrl) => {
+                  console.log("Creation Back Image Input Callback:", dataUrl ? "Image received" : "Image removed (null)");
+                  creationBackImage = dataUrl;
+                  if (dataUrl) { // Only display preview if data is received
+                     displayImage(dataUrl, creationBackImagePreviewContainer, creationBackImageControls);
+                  } else { // If dataUrl is null (removed/failed)
+                     creationBackImagePreviewContainer.innerHTML = '';
+                     creationBackImageControls.style.display = 'none';
+                  }
+             });
 
              // Set up image handling in the learning section
-             // These callbacks now rely on updateCardInOriginalDeck to save changes
+             // These callbacks now rely on findAndModifyCardInOriginalDeck to save changes
              setupImageInput(learningFrontImageDropZone, learningFrontImagePreviewContainer, learningFrontImageControls, removeLearningFrontImageBtn, learningFrontImagePasteBtn, (dataUrl) => {
                   // Callback for learning section front image input
                   console.log("Learning Front Image Input Callback:", dataUrl ? "Image received" : "Image removed (null)");
@@ -5031,19 +5264,22 @@ Front content::
                   card.frontImage = dataUrl === null ? undefined : dataUrl; // Update the in-memory object (undefined if removed)
 
                   // Save the persistent change to localStorage
-                  // updateCardInOriginalDeck will find the card by its front text in the original deck (currentDeck.name)
+                  // findAndModifyCardInOriginalDeck will find the card by its front text in the original deck (currentDeck.name)
                    // and copy the updated frontImage property.
-                  const saved = updateCardInOriginalDeck(card);
+                   const saved = findAndModifyCardInOriginalDeck(card, (originalCard) => {
+                       originalCard.frontImage = card.frontImage; // Copy from in-memory card
+                   });
 
-                  if (saved) {
+
+                  if (saved.success) {
                        console.log("Learning front image saved successfully. Re-displaying card.");
                        // If save successful, re-render the main card face to show the image
                        displayCurrentCard(); // This will update the main card display
                        // UI preview is already updated by handleImageFile/Blob via displayImage()
                   } else {
                        // If save failed, revert the in-memory change and the UI preview
-                       console.error("Failed to save learning front image.");
-                       alert("Error saving image to deck.");
+                       console.error("Failed to save learning front image:", saved.error);
+                       alert("Error saving image to deck: " + saved.error);
                        card.frontImage = undefined; // Revert in-memory change
                        learningFrontImagePreviewContainer.innerHTML = ""; // Clear preview
                        learningFrontImageControls.style.display = 'none'; // Hide controls
@@ -5073,19 +5309,21 @@ Front content::
                   card.backImage = dataUrl === null ? undefined : dataUrl; // Update the in-memory object (undefined if removed)
 
                   // Save the persistent change to localStorage
-                  // updateCardInOriginalDeck will find the card by its front text in the original deck (currentDeck.name)
+                  // findAndModifyCardInOriginalDeck will find the card by its front text in the original deck (currentDeck.name)
                   // and copy the updated backImage property.
-                  const saved = updateCardInOriginalDeck(card);
+                  const saved = findAndModifyCardInOriginalDeck(card, (originalCard) => {
+                       originalCard.backImage = card.backImage; // Copy from in-memory card
+                  });
 
-                  if (saved) {
+                  if (saved.success) {
                        console.log("Learning back image saved successfully. Re-displaying card.");
                        // If save successful, re-render the main card face to show the image
                        displayCurrentCard(); // This will update the main card display
                         // UI preview is already updated by handleImageFile/Blob via displayImage()
                   } else {
                        // If save failed, revert the in-memory change and the UI preview
-                       console.error("Failed to save learning back image.");
-                       alert("Error saving image to deck.");
+                       console.error("Failed to save learning back image:", saved.error);
+                       alert("Error saving image to deck: " + saved.error);
                        card.backImage = undefined; // Revert in-memory change
                        learningBackImagePreviewContainer.innerHTML = ""; // Clear preview
                        learningBackImageControls.style.display = 'none'; // Hide controls

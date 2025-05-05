@@ -47,7 +47,7 @@
             max-width: 800px;
             margin: 0 auto; /* Center the menu horizontally */
         }
-        
+
         .menu-button {
             padding: 30px 20px;
             font-size: 1.5em;
@@ -58,16 +58,16 @@
             cursor: pointer;
             transition: background-color 0.3s ease;
         }
-        
+
         .menu-button:hover {
             background-color: #333333; /* Darker shade for hover */
         }
-        
+
         /* Dark mode for main menu */
         body.dark-mode .menu-button {
             background-color: #000000; /* Black in dark mode too */
         }
-        
+
         body.dark-mode .menu-button:hover {
             background-color: #333333; /* Darker shade for hover in dark mode */
         }
@@ -112,16 +112,16 @@
             font-size: 1em;
             transition: background-color 0.3s ease;
         }
-        
+
         .back-to-menu:hover {
             background-color: #5a6268;
         }
-        
+
         /* Dark mode for back button */
         body.dark-mode .back-to-menu {
             background-color: #5a6268;
         }
-        
+
         body.dark-mode .back-to-menu:hover {
             background-color: #495057;
         }
@@ -310,6 +310,8 @@
              overflow-y: auto; /* Add scrollbar for text content if it overflows */
              padding: 0; /* No padding here, padding is on .card */
               box-sizing: border-box;
+             white-space: pre-wrap; /* IMPORTANT: Retain whitespace for formatting like bullet points */
+             text-align: inherit; /* Inherit text alignment from .card */
          }
 
 
@@ -444,7 +446,7 @@
             display: block; /* Stack vertically */
             width: 100%;
         }
-        
+
         /* Controls buttons are arranged horizontally */
         .controls button {
             margin: 0; /* Remove default margins */
@@ -983,12 +985,12 @@
                  margin: 5px 0; /* Stack vertically */
                  box-sizing: border-box;
              }
-             
+
              /* Keep controls buttons horizontal but adjust for small screens */
              .controls {
                  gap: 5px; /* Reduce gap on small screens */
              }
-             
+
              .controls button {
                  flex: 1 1 auto; /* Allow more flexible sizing on small screens */
                  font-size: 0.9em; /* Slightly smaller font on small screens */
@@ -1152,7 +1154,11 @@
                 </div>
             </div>
 
-            <textarea id="textInput" rows="10" placeholder="Paste new cards here. Use '::' to separate front and back, one card per line. Example: Apple :: A fruit"></textarea>
+            <textarea id="textInput" rows="10" placeholder="Paste new cards here. Separate front and back using '::'. One card per line or use multiline format:
+Front content::
+- Back point 1
+- Back point 2
+- etc."></textarea>
 
             <!-- Back side image drop zone (Creation) -->
             <div id="creationBackImageDropZone" class="drop-zone">
@@ -1279,7 +1285,7 @@
                  <!-- --- End Image Input Controls for Learning Section --- -->
 
             </div>
-            
+
             <button class="back-to-menu" onclick="goBack()">Back to Menu</button>
         </section>
     </div>
@@ -1300,20 +1306,20 @@
             document.getElementById('creationSection').style.display = 'block';
             document.getElementById('learningSection').style.display = 'none';
         }
-        
+
         function showLearning() {
             document.getElementById('mainMenu').style.display = 'none';
             document.getElementById('creationSection').style.display = 'none';
             document.getElementById('learningSection').style.display = 'block';
         }
-        
+
         function goBack() {
             document.getElementById('mainMenu').style.display = 'flex';
             document.getElementById('creationSection').style.display = 'none';
             document.getElementById('learningSection').style.display = 'none';
             resetLearningArea(); // Reset learning area when going back to menu
         }
-        
+
         // --- JavaScript Logic ---
 
         // Get references to HTML elements (Creation Section)
@@ -1394,7 +1400,7 @@
         const modalClose = document.querySelector('.modal-close');
 
 
-        let currentDeck = null; // { name: '...', folder: '...', cards: [{front:'...', back:'...', status:'...', isFavorite: boolean, sourceDeckName?: string, sourceCardFront?: string, frontHighlighted?: string, backHighlighted?: string, frontHighlightHistory?: string[], backHighlightHistory?: string[], frontImage?: string, backImage?: string}], shuffledIndices: [...] }
+        let currentDeck = null; // { name: '...', folder: '...', cards: [{front:'...', back:'...', status:'...', isFavorite: boolean, sourceDeckName?: string, sourceCardFront?: string, frontHighlighted?: string, backHighlighted?: string, frontHighlightHistory?: string[], backHighlightHistory?: string[], frontImage?: string, backImage?: string}], shuffledIndices: [...], displayName?: string }
         let currentCardIndex = 0; // Index within the shuffled/original order
         let isAnswerShowing = false;
         let isHighlighterActive = false; // Track if highlighter mode is active
@@ -1427,38 +1433,53 @@
                 // Ensure basic properties exist for compatibility with older saves and add new ones
                  for (const deckName in decks) {
                      const deck = decks[deckName];
+                     // Basic structural check for the top-level deck object
                      if (!deck || typeof deck.name !== 'string' || !Array.isArray(deck.cards)) {
                           console.warn(`Deck "${deckName}" has invalid structure. Skipping.`);
                           delete decks[deckName]; // Remove invalid deck
                           continue;
                      }
-                      deck.cards.forEach(card => {
-                          if (!card || typeof card.front !== 'string' || typeof card.back !== 'string') { // Basic card structure check
-                                console.warn(`Card in deck "${deckName}" has invalid structure. Skipping.`);
-                                // Attempting to normalize missing properties, but structure itself being wrong might be unrecoverable.
-                                // Let's ensure basic properties exist minimally.
-                                card.front = card.front || '';
-                                card.back = card.back || '';
+                      // Ensure card properties exist and are of the correct type
+                      deck.cards = deck.cards.filter(card => { // Filter out any invalid card objects
+                          if (!card || typeof card.front !== 'string' || typeof card.back !== 'string') {
+                                console.warn(`Card in deck "${deckName}" has invalid structure. Skipping card.`);
+                                return false; // Remove invalid card
                           }
+                          // Normalize and add missing properties to valid cards
                           if (!card.status || (card.status !== 'new' && card.status !== 'known' && card.status !== 'needsReview')) {
                              card.status = 'new'; // Default status
-                         }
+                          }
                           if (typeof card.isFavorite !== 'boolean') card.isFavorite = false; // Add default favorite status if missing
-                          // Ensure highlight properties are undefined or string
-                          if (typeof card.frontHighlighted !== 'string' && typeof card.frontHighlighted !== 'undefined') card.frontHighlighted = undefined;
-                          if (typeof card.backHighlighted !== 'string' && typeof card.backHighlighted !== 'undefined') card.backHighlighted = undefined;
 
-                           // Add image properties if missing (initialize as undefined)
-                           if (typeof card.frontImage !== 'string' && typeof card.frontImage !== 'undefined') card.frontImage = undefined;
-                           if (typeof card.backImage !== 'string' && typeof card.backImage !== 'undefined') card.backImage = undefined;
+                           // Normalize highlight properties: must be string or undefined
+                          if (typeof card.frontHighlighted !== 'string' && typeof card.frontHighlighted !== 'undefined') {
+                               console.warn(`Card "${card.front}" in deck "${deckName}" has invalid frontHighlighted type (${typeof card.frontHighlighted}). Resetting to undefined.`);
+                               card.frontHighlighted = undefined;
+                           }
+                          if (typeof card.backHighlighted !== 'string' && typeof card.backHighlighted !== 'undefined') {
+                               console.warn(`Card "${card.front}" in deck "${deckName}" has invalid backHighlighted type (${typeof card.backHighlighted}). Resetting to undefined.`);
+                               card.backHighlighted = undefined;
+                          }
+
+                           // Normalize image properties: must be string (data URL) or undefined
+                           // Ensure data URLs are strings starting with 'data:', otherwise set to undefined
+                           if (typeof card.frontImage !== 'string' || (card.frontImage && !card.frontImage.startsWith('data:'))) {
+                                console.warn(`Card "${card.front}" in deck "${deckName}" has invalid frontImage data. Resetting to undefined.`);
+                                card.frontImage = undefined;
+                           }
+                           if (typeof card.backImage !== 'string' || (card.backImage && !card.backImage.startsWith('data:'))) {
+                                console.warn(`Card "${card.front}" in deck "${deckName}" has invalid backImage data. Resetting to undefined.`);
+                                card.backImage = undefined;
+                           }
 
 
                            // Initialize history arrays if missing or not arrays. History is NOT persisted from storage.
-                          card.frontHighlightHistory = []; // Always start with empty history on load from storage
-                          card.backHighlightHistory = []; // Always start with empty history on load from storage
+                           // Ensure they are arrays for session use.
+                           card.frontHighlightHistory = []; // Always start with empty history on load from storage
+                           card.backHighlightHistory = []; // Always start with empty history on load from storage
 
 
-                          // Remove old SRS properties if they exist (for migration/cleanup)
+                           // Remove old SRS properties if they exist (for migration/cleanup)
                           delete card.interval;
                           delete card.repetitions;
                           delete card.easeFactor;
@@ -1467,12 +1488,16 @@
                            // Remove temporary source info if present (cleanup for regular decks)
                            delete card.sourceDeckName;
                            delete card.sourceCardFront;
+
+                           return true; // Keep this card as it's valid or normalized
                       });
+
                       // Ensure folder property exists (string or undefined)
                       if (typeof deck.folder !== 'string' && typeof deck.folder !== 'undefined') {
+                           console.warn(`Deck "${deckName}" has invalid folder type (${typeof deck.folder}). Resetting to undefined.`);
                            deck.folder = undefined;
                       }
-                     // Shuffled indices will be handled on load
+                     // Shuffled indices and display name are session-specific and should not be loaded from storage
                       delete deck.shuffledIndices; // Ensure this isn't loaded from storage
                       delete deck.displayName; // Ensure this isn't loaded from storage
 
@@ -1700,6 +1725,8 @@
                              deck.cards.forEach(card => {
                                  if (card.isFavorite) {
                                       // Create a unique identifier for the card (deckName + original front text)
+                                      // Using a combination of original deck name and original front text as a unique identifier *within* the temporary view.
+                                      // This identifier is NOT saved persistently.
                                       const cardIdentifier = `${deck.name}::${card.front}`;
                                       if (!addedCardIdentifiers.has(cardIdentifier)) {
                                            // Clone and add source info for the temporary view
@@ -2341,7 +2368,7 @@
                            updateDeckButtonStates(); // Update main deck buttons
                        }
                        // The state of the favorite load button is updated by updateFavoriteButtonStates
-                  }
+                   }
              });
 
              console.log("Mutual exclusion listeners added.");
@@ -2471,40 +2498,51 @@
 
         // --- Creation Logic ---
 
-        // Helper function to parse text input into an array of card objects
-         function parseTextToCards(text) {
-             console.log("Parsing text input into cards.");
-             const lines = text.split('\n').filter(line => line.trim() !== ''); // Filter out empty lines
-             const cards = [];
-             lines.forEach(line => {
-                // Regex to capture front and back, allowing empty back if :: is present
-                const parts = line.match(/^(.*?)(?:::(.*))?$/); // Non-capturing group for '::' and capture group for back
-                 if (parts && parts[1].trim()) { // Ensure front part exists after trim
-                     const frontContent = parts[1].trim();
-                     const backContent = parts[2] !== undefined ? parts[2].trim() : ""; // Back is empty if :: or back part missing
+        // Revised Helper function to parse text input into an array of card objects
+        function parseTextToCards(text) {
+            console.log("Parsing text input into cards (revised split logic).");
+            const cards = [];
+            // Split the entire text by the separator '::'
+            const blocks = text.split('::');
+            console.log("Split into blocks:", blocks.length, blocks);
 
+            // We expect blocks to be in pairs: blocks[0] is Front1, blocks[1] is Back1,
+            // blocks[2] is Front2, blocks[3] is Back2, and so on.
+            // If the total number of blocks is odd, the last block is the Front of the last card with no Back.
+            // If the total number of blocks is 1, it's a single card with a Front and no Back.
+
+            for (let i = 0; i < blocks.length; i += 2) {
+                const frontBlock = blocks[i];
+                const backBlock = blocks[i + 1]; // This will be undefined if blocks.length is odd and i is the last index
+
+                const frontContent = frontBlock ? frontBlock.trim() : ''; // Trim front whitespace
+                const backContent = backBlock ? backBlock : '';           // Do NOT trim back content generally, preserve formatting like indents/bullets
+
+                // Only create a card object if there is *any* content in the front or back,
+                // or if it's the very first block and it contains non-whitespace (to allow image-only cards created without text)
+                if (frontContent !== '' || backContent !== '' || (i === 0 && frontBlock && frontBlock.trim() !== '')) {
                      cards.push({
                          front: frontContent,
                          back: backContent,
                          status: 'new', // New cards added start as new
                          isFavorite: false, // Default to not favorited
-                         frontHighlighted: undefined, // Initialize without user highlighting
-                         backHighlighted: undefined, // Initialize without user highlighting
-                         frontHighlightHistory: [], // History starts empty for new cards
-                         backHighlightHistory: [],   // History starts empty for new cards
-                          frontImage: undefined, // Initialize image properties
-                          backImage: undefined
+                         frontHighlighted: undefined, // No highlights initially
+                         backHighlighted: undefined,
+                         frontHighlightHistory: [], // Empty history initially
+                         backHighlightHistory: [],
+                         frontImage: undefined, // Images will be added later in the parseAndSaveBtn logic if present
+                         backImage: undefined
                      });
+                     console.log(`Created card ${cards.length}: Front trimmed length=${frontContent.length}, Back length=${backContent.length}`);
                  } else {
-                      // If line is not just whitespace and doesn't match the pattern (e.g., starts with ::)
-                      if (line.trim() !== '') {
-                           console.warn(`Skipping malformed line: "${line.trim()}"`);
-                      }
+                     // This handles cases like leading '::' (blocks[0] is empty) or trailing '::' (last block is empty)
+                     console.warn(`Skipping block pair due to empty content at index ${i}. Front trimmed length=${frontContent.length}, Back length=${backContent.length}.`);
                  }
-             });
-             console.log("Parsed cards from text:", cards);
-             return cards;
-         }
+            }
+
+            console.log("Parsed cards from text (final):", cards);
+            return cards;
+        }
 
 
         parseAndSaveBtn.addEventListener('click', () => {
@@ -2762,7 +2800,6 @@
          });
 
 
-
         // --- Learning Logic ---
 
         // Modified Load Deck button listener (now loads selected checkboxes)
@@ -2830,7 +2867,7 @@
                  undoHighlightBtn.disabled = true;
                  resetHighlightBtn.disabled = true;
 
-                  // Ensure text selection is disabled on the card text elements
+               // Ensure text selection is disabled on the card text elements
                    // Also remove any previously attached click listeners (images)
                   removeImageClickListeners(cardFrontImageContainer);
                    removeImageClickListeners(cardBackImageContainer);
@@ -2892,8 +2929,7 @@
                  isHighlighterActive = false; // Reset highlighter mode
 
                   // Ensure text selection is disabled
-                  // Also remove any previously attached click listeners (images)
-                   removeImageClickListeners(cardFrontImageContainer);
+                  removeImageClickListeners(cardFrontImageContainer);
                   removeImageClickListeners(cardBackImageContainer);
                   cardFrontTextContent.style.userSelect = 'none';
                   cardFrontTextContent.style.webkitUserSelect = 'none';
@@ -3007,7 +3043,7 @@
 
 
              exportCurrentDeckBtn.disabled = (currentDeck.name === ALL_FAVORITES_KEY || currentDeck.name === MERGED_DECKS_KEY); // Export enabled ONLY for single regular deck view
-             // deleteDeckBtn.disabled is managed by updateDeckButtonStates based on selection
+             // deleteDeckBtn state depends on selected checkboxes, not loaded deck
 
 
             updateProgressDisplay(); // Update display with current card number and overall progress
@@ -3323,7 +3359,7 @@
                  originalDeckName = currentCard.sourceDeckName;
                  cardIdentifier = currentCard.sourceCardFront; // Use original front text for lookup
                  console.log(`updateCardInOriginalDeck (Temporary View): Looking for card "${cardIdentifier || '(Empty Front)'}" in deck "${originalDeckName}".`);
-             } else if (currentDeck.name !== ALL_FAVORITES_KEY && currentDeck.name !== MERGED_DECKS_KEY && currentDeck.name && currentCard.front !== undefined) {
+             } else if (currentDeck.name && currentDeck.name !== ALL_FAVORITES_KEY && currentDeck.name !== MERGED_DECKS_KEY && currentCard.front !== undefined) {
                  // If it's a regular deck view, the original deck is the current deck
                  originalDeckName = currentDeck.name;
                  cardIdentifier = currentCard.front; // Use current front text for lookup
@@ -3750,7 +3786,7 @@
 
                          // Check if the imported deck name is a reserved key
                          if (importedDeck.name === ALL_FAVORITES_KEY || importedDeck.name === MERGED_DECKS_KEY) {
-                              alert(`Error: The deck name "${importedDeck.name}" is reserved. Please rename the deck file.`);
+                              alert(`Error: The deck name "${importedDeck.name}" is reserved. Please choose a different name.`);
                               event.target.value = ''; // Reset file input
                                console.warn("Import failed: Reserved deck name used.");
                               return;
@@ -4118,38 +4154,45 @@
                     console.warn("No range in selection.");
                     return;
                 }
-                const range = selection.getRangeAt(0);
+                let range = selection.getRangeAt(0); // Use let so we can reassign
 
                 // Ensure the selection is entirely within the current text content element
                 if (!textContentElement.contains(range.startContainer) || !textContentElement.contains(range.endContainer)) {
                     console.warn("Selection spans outside the current text content element. Trying to normalize.");
-                    
+
                     // Create a new range that's contained within the text content element
                     const newRange = document.createRange();
-                    
+
                     // If start is outside, set it to the beginning of the text content
                     if (!textContentElement.contains(range.startContainer)) {
                         newRange.setStart(textContentElement, 0);
                     } else {
                         newRange.setStart(range.startContainer, range.startOffset);
                     }
-                    
+
                     // If end is outside, set it to the end of the text content
                     if (!textContentElement.contains(range.endContainer)) {
                         newRange.setEnd(textContentElement, textContentElement.childNodes.length);
                     } else {
                         newRange.setEnd(range.endContainer, range.endOffset);
                     }
-                    
+
                     // Replace the selection with our normalized range
                     selection.removeAllRanges();
                     selection.addRange(newRange);
-                    
+
                     // Update the range reference
                     range = newRange;
                     console.log("Selection normalized to fit within text content element.");
+                     // If normalization resulted in no selected text, stop
+                     if (range.toString().trim() === '') {
+                         console.log("Normalized selection is empty. Ignoring.");
+                         selection.removeAllRanges(); // Ensure it's cleared
+                         return;
+                     }
                 }
                 console.log("Selection is within the target text content element.");
+
 
                 // Create a highlight span element (using the dedicated user-highlight class)
                 const highlightSpan = document.createElement('span');
@@ -4157,25 +4200,24 @@
                 highlightSpan.style.display = 'inline'; // Ensure inline display
 
                 try {
-                    // Try the standard approach first
+                    // Try the standard surroundContents approach
+                     console.log("Attempting standard surroundContents...");
                     range.surroundContents(highlightSpan);
                     console.log("Standard highlight span applied.");
                 } catch (surroundError) {
                     console.warn("surroundContents failed, trying alternative approach:", surroundError);
-                    
-                    // Alternative approach for complex selections
-                    // Extract the text content
-                    const selectedText = range.toString();
-                    
-                    // Create a new span with the selected text
-                    highlightSpan.textContent = selectedText;
-                    
-                    // Delete the original content
-                    range.deleteContents();
-                    
-                    // Insert the highlighted span
-                    range.insertNode(highlightSpan);
-                    console.log("Alternative highlight approach applied.");
+
+                    // Alternative approach for complex selections (like across HTML nodes)
+                    // This is a simplified version; more robust range manipulation is complex.
+                    // For now, a basic fallback that wraps the *entire content* of the selected range
+                    // might suffice for simple cases, but could break complex HTML.
+                    // A better approach would involve iterating range contents.
+                    // Given the current simple syntax highlighting (spans), surroundContents should usually work if the selection is valid.
+                    // Let's just log the error and potentially fail gracefully for complex selections.
+                    console.error('Alternative highlighting approach not fully implemented for complex selections. Error:', surroundError);
+                    alert('Could not apply highlight to this complex selection. Please try selecting a single block of text.');
+                     selection.removeAllRanges(); // Clear selection on error
+                    return; // Stop processing
                 }
 
                 // Clear the selection after highlighting
@@ -4187,9 +4229,8 @@
                 saveHighlightedContent(isBackFace, textContentElement.innerHTML); // Pass the actual HTML content
 
             } catch (e) {
-                console.error('Error applying highlight:', e);
-                // This catch block is for when all highlighting approaches fail
-                alert('Could not apply highlight to this selection. Please try selecting a different text area.');
+                console.error('Unexpected error during highlight application:', e);
+                alert('An error occurred while applying the highlight: ' + e.message);
                 selection.removeAllRanges(); // Attempt to clear selection even on error
                 console.log("Error caught and selection cleared.");
             } finally {
@@ -4203,7 +4244,7 @@
         // Pass the updated HTML content of the text area explicitly
         function saveHighlightedContent(isBackFace, updatedTextHTML) {
              console.log("saveHighlightedContent called (Back face:", isBackFace, ")");
-            // Disallow saving changes if no deck or in a temporary view
+            // Disallow saving changes if no deck loaded or in a temporary view
             if (!currentDeck || currentDeck.cards.length === 0 || currentDeck.shuffledIndices.length === 0 || currentDeck.name === ALL_FAVORITES_KEY || currentDeck.name === MERGED_DECKS_KEY) {
                  console.error("saveHighlightedContent called but no deck/card loaded or in a temporary view. Cannot save.");
                  // Revert the highlight in the UI visually if it was applied
@@ -4229,7 +4270,7 @@
             }
 
             // Save the persistent change to the *original* card in storage using the helper
-            // The helper function updateCardInOriginalDeck copies the highlighted properties from 'card' to 'originalCard'
+            // The helper updateCardInOriginalDeck copies the highlighted properties from 'card' to 'originalCard'
              const saved = updateCardInOriginalDeck(card);
 
 
@@ -4397,6 +4438,21 @@
              e.stopPropagation();
         }
 
+        // Helper function to display an image preview and show controls
+         function displayImage(dataUrl, previewContainer, controlsElement) {
+              console.log("Displaying image in preview container:", previewContainer.id);
+              // Clear previous content
+              previewContainer.innerHTML = '';
+
+              const img = document.createElement('img');
+              img.src = dataUrl;
+              img.alt = "Image Preview";
+              previewContainer.appendChild(img);
+              controlsElement.style.display = 'flex'; // Show controls
+              console.log("Image element created and appended. Controls displayed.");
+         }
+
+
         // Helper function to handle dropped files (specifically images)
         // This function is generic and calls the specific callback with the dataUrl
         function handleDrop(e, previewContainer, controlsElement, onImageLoadCallback) {
@@ -4412,9 +4468,15 @@
                  } else {
                      alert('Please drop an image file.');
                       console.warn("Dropped file is not an image (type:", file.type, ").");
+                      // Clear any temporary loading indicator if shown by dragenter handler
+                      previewContainer.innerHTML = '';
+                      controlsElement.style.display = 'none';
                  }
              } else {
                   console.log("No files dropped.");
+                  // Clear any temporary loading indicator if shown by dragenter handler
+                  previewContainer.innerHTML = '';
+                  controlsElement.style.display = 'none';
              }
         }
 
@@ -4495,28 +4557,6 @@
              handleImageFile(blob, previewContainer, controlsElement, onImageLoadCallback);
          }
 
-
-        // Helper function to display the image preview and controls in a given container
-        // This function does NOT call the onImageLoadCallback, that happens in handleImageFile/Blob
-        function displayImage(dataUrl, previewContainer, controlsElement) {
-             console.log("Displaying image preview in:", previewContainer.id);
-             previewContainer.innerHTML = ''; // Clear previous content
-             const img = document.createElement('img');
-             img.src = dataUrl;
-             img.alt = "Image preview";
-              // Add a specific class for preview images if needed,
-              // or rely on the container class for styling
-             // img.className = 'preview-thumbnail'; // Add a class if you want specific preview styling
-
-              // Ensure the preview image itself is not clickable for zoom
-              img.style.cursor = 'default';
-              img.style.userSelect = 'none';
-
-
-             previewContainer.appendChild(img);
-             controlsElement.style.display = 'flex'; // Show controls
-             console.log("Image preview updated and controls shown for:", previewContainer.id);
-        }
 
         // Helper function to handle items from clipboard read() - primarily for button paste
         // FIX: Added a check for item.types and item.type being defined before calling startsWith.
@@ -4814,7 +4854,7 @@
                       controlsElement = learningBackImageControls;
                        // Define the callback logic specifically for learning section images
                       onImageChangeCallback = (dataUrl) => {
-                           console.log("Learning Back Image Paste Callback (Global Paste):", dataUrl ? "Image received" : "Image removed (null)");
+                           console.log("Learning Back Image Input Callback (Global Paste):", dataUrl ? "Image received" : "Image removed (null)");
                            if (dataUrl === null) {
                                 card.backImage = undefined; // Set to undefined in-memory
                            } else {
@@ -4945,17 +4985,17 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM fully loaded.");
-            
+
             // Initialize app state - show main menu by default
             document.getElementById('mainMenu').style.display = 'flex';
             document.getElementById('creationSection').style.display = 'none';
             document.getElementById('learningSection').style.display = 'none';
-            
+
             // Connect dark mode toggle to existing functionality
             document.getElementById('toggleDarkModeBtn').addEventListener('click', function() {
                 document.body.classList.toggle('dark-mode');
             });
-            
+
             populateFolderSelect();
             populateDeckSelect(); // This now populates main deck checkboxes and calls populateFavoriteSourceSelect
              populateAddDeckSelect(); // Populate the new dropdown
